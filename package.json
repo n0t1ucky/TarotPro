@@ -1,7 +1,7 @@
 {
-  "name": "pomodoro-widget",
+  "name": "tarotpro",
   "version": "1.0.0",
-  "description": "A borderless transparent countdown widget for Windows",
+  "description": "A borderless transparent tarot fortune widget for Windows",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -10,12 +10,12 @@
   "author": "n0t1ucky",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^33.0.0",
+    "electron": "^43.4.1",
     "electron-builder": "^26.15.3"
   },
   "build": {
-    "appId": "com.n0t1ucky.tarotplus",
-    "productName": "TarotPlus",
+    "appId": "com.n0t1ucky.tarotpro",
+    "productName": "TarotPro",
     "directories": {
       "output": "release"
     },
@@ -39,7 +39,9 @@
       "target": [
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
     },

@@ -2,38 +2,31 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline';" />
-  <title>Pomodoro Widget</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; connect-src *;" />
+  <title>TarotPro</title>
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="compact.css" />
   <link rel="stylesheet" href="toast.css" />
 </head>
 <body>
   <div id="titlebar">
-    <span id="mode-label">持續時間模式</span>
+    <span id="app-title">TarotPro</span>
     <button id="btn-quit" title="關閉">✕</button>
   </div>
-  <div id="display">00:00:00</div>
 
-  <div id="controls">
-    <div id="mode-row">
-      <button id="btn-mode-duration" class="mode-btn active">持續時間</button>
-      <button id="btn-mode-target" class="mode-btn">目標時間</button>
-    </div>
+  <div id="omen-area">
+    <button id="btn-omen">抽牌</button>
+  </div>
 
-    <div id="input-row">
-      <input id="input-h" type="text" inputmode="numeric" placeholder="hh" maxlength="2" />
-      <span class="colon">:</span>
-      <input id="input-m" type="text" inputmode="numeric" placeholder="mm" maxlength="2" />
-      <span class="colon">:</span>
-      <input id="input-s" type="text" inputmode="numeric" placeholder="ss" maxlength="2" />
-      <button id="btn-toggle">開始</button>
-      <button id="btn-stop">停止</button>
-      <button id="btn-omen">運勢</button>
-    </div>
+  <input id="question-input" type="text" placeholder="輸入占卜問題（可留空）" />
+
+  <div id="action-row">
+    <button id="btn-interpret">解牌</button>
   </div>
 
   <div id="status"></div>
+
+  <div id="interpret-result" hidden></div>
 
   <script src="toast.js"></script>
   <script src="renderer.js"></script>

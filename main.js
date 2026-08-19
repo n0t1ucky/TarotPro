@@ -12,8 +12,8 @@ const HISTORY_FILE = path.join(app.getPath('userData'), 'tarot-history.json');
 const CONFIG_FILE = path.join(app.getPath('userData'), 'window-config.json');
 
 const WINDOW_PRESETS = {
-  standard: { width: 360, height: 176, label: '標準' },
-  compact: { width: 180, height: 90, label: '緊湊' }
+  standard: { width: 360, height: 320, label: '標準' },
+  compact: { width: 180, height: 200, label: '緊湊' }
 };
 
 function readConfig() {
@@ -109,7 +109,7 @@ function createSettingsWindow() {
 function createTray() {
   const icon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'tray-32.png'));
   tray = new Tray(icon);
-  tray.setToolTip('番茄鐘');
+  tray.setToolTip('TarotPro');
   const menu = Menu.buildFromTemplate([
     {
       label: '設置',
@@ -249,15 +249,6 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   app.quit();
-});
-
-ipcMain.handle('get-current-time', () => {
-  const now = new Date();
-  return {
-    iso: now.toISOString(),
-    local: now.toString(),
-    timezoneOffsetMinutes: now.getTimezoneOffset()
-  };
 });
 
 // 設定視窗請求：重置當天塔羅抽牌機會

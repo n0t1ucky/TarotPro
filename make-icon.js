@@ -56,24 +56,48 @@ function makePng(size, draw) {
   ]);
 }
 
-// 藍底圓角計時器樣式圖標
-function drawTimer(x, y, size) {
+// 紫底塔羅牌樣式圖標：圓角牌面 + 八角星 + 金色月牙
+function drawTarot(x, y, size) {
   const cx = size / 2;
   const cy = size / 2;
-  const r = size * 0.46;
   const dx = x - cx;
   const dy = y - cy;
-  const dist = Math.sqrt(dx * dx + dy * dy);
-  if (dist > r) return [0, 0, 0, 0];
-  const ring = r - size * 0.06;
-  if (dist > ring) return [60, 130, 255, 255];
-  // 時鐘指針
-  const angleH = -Math.PI / 2;
-  const angleM = -Math.PI / 2 + Math.PI / 6;
-  const hand = (dist <= size * 0.30 && Math.abs(Math.atan2(dy, dx) - angleH) < 0.4) ||
-               (dist <= size * 0.22 && Math.abs(Math.atan2(dy, dx) - angleM) < 0.4);
-  if (hand) return [255, 255, 255, 255];
-  return [255, 255, 255, 255];
+
+  // 圓角牌面（紫色底）
+  const half = size * 0.46;
+  const corner = size * 0.16;
+  const ax = Math.max(Math.abs(dx) - (half - corner), 0);
+  const ay = Math.max(Math.abs(dy) - (half - corner), 0);
+  if (ax * ax + ay * ay > corner * corner) return [0, 0, 0, 0];
+  if (Math.abs(dx) > half || Math.abs(dy) > half) return [0, 0, 0, 0];
+
+  // 內圈白底（牌面中央）
+  const innerHalf = size * 0.34;
+  const iCorner = size * 0.10;
+  const iax = Math.max(Math.abs(dx) - (innerHalf - iCorner), 0);
+  const iay = Math.max(Math.abs(dy) - (innerHalf - iCorner), 0);
+  const inCard = iax * iax + iay * iay <= iCorner * iCorner &&
+                 Math.abs(dx) <= innerHalf && Math.abs(dy) <= innerHalf;
+  if (inCard) return [248, 244, 255, 255];
+
+  // 八角星（紫，置中於白底上）
+  const s1 = size * 0.16;
+  const s2 = size * 0.105;
+  if (Math.abs(dx) + Math.abs(dy) <= s1 ||
+      (Math.abs(dx) <= s2 && Math.abs(dy) <= s2)) {
+    return [150, 120, 220, 255];
+  }
+
+  // 金色月牙（右上角）
+  const mc1x = cx + size * 0.16;
+  const mc1y = cy - size * 0.16;
+  const mc2x = cx + size * 0.22;
+  const mc2y = cy - size * 0.22;
+  const d1 = Math.sqrt((x - mc1x) * (x - mc1x) + (y - mc1y) * (y - mc1y));
+  const d2 = Math.sqrt((x - mc2x) * (x - mc2x) + (y - mc2y) * (y - mc2y));
+  if (d1 <= size * 0.14 && d2 > size * 0.11) return [250, 200, 90, 255];
+
+  return [150, 120, 220, 255];
 }
 
 const assetsDir = path.join(__dirname, 'assets');
@@ -81,7 +105,7 @@ if (!fs.existsSync(assetsDir)) fs.mkdirSync(assetsDir);
 
 const pngs = {};
 for (const size of [16, 32, 48, 256]) {
-  const png = makePng(size, drawTimer);
+  const png = makePng(size, drawTarot);
   pngs[size] = png;
   const file = path.join(assetsDir, `tray-${size}.png`);
   fs.writeFileSync(file, png);

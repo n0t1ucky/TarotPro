@@ -110,10 +110,11 @@ const TAROT_SYSTEM_PROMPT =
   '你是一位專業的塔羅牌解讀師。你熟悉大阿卡那與小阿卡那的象徵意義、' +
   '以及正位與逆位（- 為逆位，+ 為正位）的差異。你的解牌風格沉穩、具體、務實，使用繁體中文。';
 
-function buildInterpretPrompt(cards) {
+function buildInterpretPrompt(cards, question) {
   return (
     `請針對以下三張塔羅牌進行解牌。\n\n` +
     `本次抽牌結果：${cards}\n\n` +
+    (question && question.trim() ? `占卜問題：${question.trim()}\n\n` : '') +
     `編號格式說明：數字為牌面編號，牌名後方的 + 代表正位、- 代表逆位。\n` +
     `（小阿卡那的權杖/聖杯/寶劍/錢幣四種花色，對應火/水/風/土四元素。）\n\n` +
     `請依以下結構回覆：\n` +

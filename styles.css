@@ -35,6 +35,12 @@ body {
   font-size: 11px;
 }
 
+#app-title {
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: #c9b7f0;
+}
+
 #btn-quit {
   -webkit-app-region: no-drag;
   position: absolute;
@@ -60,129 +66,77 @@ body {
   color: #fff;
 }
 
-#display {
-  text-align: center;
-  font-size: 44px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 2px;
-  color: #e8eaf0;
-  padding: 2px 0 4px;
-  font-family: "Consolas", "Segoe UI", monospace;
-}
-
-#display.running {
-  color: #6fd08c;
-}
-
-#display.finished {
-  color: #ff5f56;
-  animation: blink 1s step-start infinite;
-}
-
-@keyframes blink {
-  50% { opacity: 0.25; }
-}
-
-#controls {
+#omen-area {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 0 8px 8px;
-}
-
-#mode-row {
-  display: flex;
-  gap: 4px;
-}
-
-.mode-btn {
-  flex: 1;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #b9bfd4;
-  border-radius: 4px;
-  padding: 3px 0;
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.mode-btn.active {
-  background: rgba(80, 140, 255, 0.35);
-  border-color: rgba(80, 140, 255, 0.7);
-  color: #fff;
-}
-
-#input-row {
-  display: flex;
-  gap: 3px;
   align-items: center;
+  justify-content: center;
+  padding: 4px 8px 6px;
 }
 
-#input-h, #input-m, #input-s {
-  width: 42px;
+#btn-omen {
+  background: rgba(150, 120, 220, 0.5);
+  border: 1px solid rgba(150, 120, 220, 0.8);
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 28px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  -webkit-app-region: no-drag;
+}
+
+#btn-omen:hover {
+  background: rgba(150, 120, 220, 0.7);
+}
+
+#btn-omen:active {
+  transform: scale(0.96);
+}
+
+#question-input {
+  margin: 0 8px 6px;
   background: rgba(0, 0, 0, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 4px;
   color: #e8eaf0;
-  font-family: "Consolas", "Segoe UI", monospace;
-  font-size: 13px;
-  padding: 4px 2px;
-  text-align: center;
+  font-size: 12px;
+  padding: 5px 8px;
   -webkit-app-region: no-drag;
 }
 
-#input-h:focus, #input-m:focus, #input-s:focus {
+#question-input:focus {
   outline: none;
   border-color: rgba(80, 140, 255, 0.8);
 }
 
-.colon {
-  color: #9aa0b4;
-  font-weight: 700;
-  font-family: "Consolas", monospace;
+#action-row {
+  display: flex;
+  gap: 6px;
+  padding: 0 8px 6px;
 }
 
-#input-row button {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #dfe3ee;
-  border-radius: 4px;
-  padding: 4px 10px;
-  font-size: 12px;
+#btn-interpret {
+  flex: 1;
+  background: rgba(240, 170, 60, 0.5);
+  border: 1px solid rgba(240, 170, 60, 0.8);
+  color: #fff;
+  border-radius: 6px;
+  padding: 6px 0;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
   -webkit-app-region: no-drag;
 }
 
-#input-row button:hover {
-  background: rgba(255, 255, 255, 0.16);
+#btn-interpret:hover {
+  background: rgba(240, 170, 60, 0.7);
 }
 
-#btn-toggle {
-  background: rgba(80, 180, 110, 0.5) !important;
-  border-color: rgba(80, 180, 110, 0.8) !important;
-}
-
-#btn-toggle:hover {
-  background: rgba(80, 180, 110, 0.7) !important;
-}
-
-#btn-toggle.paused {
-  background: rgba(240, 170, 60, 0.5) !important;
-  border-color: rgba(240, 170, 60, 0.8) !important;
-}
-
-#btn-toggle.paused:hover {
-  background: rgba(240, 170, 60, 0.7) !important;
-}
-
-#btn-omen {
-  background: rgba(150, 120, 220, 0.5) !important;
-  border-color: rgba(150, 120, 220, 0.8) !important;
-}
-
-#btn-omen:hover {
-  background: rgba(150, 120, 220, 0.7) !important;
+#btn-interpret:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 #status {
@@ -196,4 +150,28 @@ body {
 #status.omen {
   color: #c9b7f0;
   font-weight: 600;
+}
+
+#status.error {
+  color: #ff5f56;
+}
+
+#interpret-result {
+  flex: 1;
+  min-height: 0;
+  margin: 0 8px 8px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #e8eaf0;
+  overflow-y: auto;
+  user-select: text;
+  white-space: pre-wrap;
+}
+
+#interpret-result[hidden] {
+  display: none;
 }
