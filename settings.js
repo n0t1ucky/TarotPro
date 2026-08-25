@@ -5,8 +5,6 @@ const baseUrlInput = document.getElementById('api-base-url');
 const btnConnect = document.getElementById('btn-connect');
 const modelField = document.getElementById('model-field');
 const modelSelect = document.getElementById('model-select');
-const btnReset = document.getElementById('btn-reset-omen');
-const unlimitedSwitch = document.getElementById('unlimited-switch');
 const btnInterpret = document.getElementById('btn-interpret');
 const resultEl = document.getElementById('result');
 const todayCardsEl = document.getElementById('today-cards');
@@ -19,7 +17,6 @@ const msg = document.getElementById('msg');
 const TOKEN_KEY = 'api.token';
 const BASE_URL_KEY = 'api.baseUrl';
 const MODEL_KEY = 'api.model';
-const UNLIMITED_KEY = 'omen.unlimited';
 
 function showMsg(text, isError) {
   msg.textContent = text;
@@ -47,12 +44,6 @@ tokenInput.addEventListener('input', () => {
 
 baseUrlInput.addEventListener('input', () => {
   localStorage.setItem(BASE_URL_KEY, baseUrlInput.value);
-});
-
-// 無限抽卡開關
-unlimitedSwitch.checked = localStorage.getItem(UNLIMITED_KEY) === '1';
-unlimitedSwitch.addEventListener('change', () => {
-  localStorage.setItem(UNLIMITED_KEY, unlimitedSwitch.checked ? '1' : '0');
 });
 
 // 連接：取得可用模型清單
@@ -125,7 +116,21 @@ function buildInterpretPrompt(cards, question) {
 }
 
 async function interpret() {
-  const cards = localStorage.getItem('tarot.lastCards');
+  let cards = null;
+  try {
+    const history = await window.api.historyGetAll();
+    const today = getDayKey();
+    const todayEntries = history.filter((r) => {
+      const d = new Date(r.timestamp);
+      d.setHours(d.getHours() - 4);
+      return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}` === today;
+    });
+    if (todayEntries.length > 0) {
+      cards = todayEntries[todayEntries.length - 1].cards || null;
+    }
+  } catch (e) {
+    cards = null;
+  }
   if (!cards) {
     showMsg('今天尚未抽牌，請先在主視窗抽牌', true);
     return;
@@ -311,19 +316,6 @@ winSizeSelect.addEventListener('change', async () => {
     showMsg(ok ? '主視窗尺寸已更新' : '套用失敗', !ok);
   } catch (e) {
     showMsg('套用尺寸失敗：' + e.message, true);
-  }
-});
-
-// 重置抽牌
-btnReset.addEventListener('click', () => {
-  try {
-    window.api.resetOmen();
-    localStorage.removeItem('tarot.lastCards');
-    todayCardsEl.textContent = '尚未抽牌';
-    todayInterpretEl.textContent = '尚無解讀';
-    showMsg('今日抽牌機會已重置，可在主視窗重新抽牌');
-  } catch (e) {
-    showMsg('重置失敗：' + e.message, true);
   }
 });
 

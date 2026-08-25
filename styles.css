@@ -66,68 +66,50 @@ body {
   color: #fff;
 }
 
-#omen-area {
+#toolbar {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  gap: 6px;
   padding: 4px 8px 6px;
+  flex-shrink: 0;
+}
+
+#toolbar button {
+  flex: 1;
+  border-radius: 6px;
+  padding: 6px 0;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #fff;
+  -webkit-app-region: no-drag;
+}
+
+#toolbar button:active {
+  transform: scale(0.98);
 }
 
 #btn-omen {
   background: rgba(150, 120, 220, 0.5);
   border: 1px solid rgba(150, 120, 220, 0.8);
-  color: #fff;
-  border-radius: 8px;
-  padding: 8px 28px;
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 2px;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  -webkit-app-region: no-drag;
 }
 
 #btn-omen:hover {
   background: rgba(150, 120, 220, 0.7);
 }
 
-#btn-omen:active {
-  transform: scale(0.96);
-}
-
-#question-input {
-  margin: 0 8px 6px;
-  background: rgba(0, 0, 0, 0.35);
+#btn-shuffle {
+  background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 4px;
-  color: #e8eaf0;
-  font-size: 12px;
-  padding: 5px 8px;
-  -webkit-app-region: no-drag;
+  color: #dfe3ee;
 }
 
-#question-input:focus {
-  outline: none;
-  border-color: rgba(80, 140, 255, 0.8);
-}
-
-#action-row {
-  display: flex;
-  gap: 6px;
-  padding: 0 8px 6px;
+#btn-shuffle:hover {
+  background: rgba(255, 255, 255, 0.16);
 }
 
 #btn-interpret {
-  flex: 1;
   background: rgba(240, 170, 60, 0.5);
   border: 1px solid rgba(240, 170, 60, 0.8);
-  color: #fff;
-  border-radius: 6px;
-  padding: 6px 0;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  -webkit-app-region: no-drag;
 }
 
 #btn-interpret:hover {
@@ -139,12 +121,154 @@ body {
   cursor: default;
 }
 
+#btn-by-card {
+  background: rgba(80, 180, 200, 0.4);
+  border: 1px solid rgba(80, 180, 200, 0.7);
+  color: #dff3f7;
+}
+
+#btn-by-card:hover {
+  background: rgba(80, 180, 200, 0.6);
+}
+
+#btn-by-card.active {
+  background: rgba(80, 180, 200, 0.7);
+}
+
+#question-input {
+  margin: 0 8px 6px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  color: #e8eaf0;
+  font-size: 12px;
+  padding: 5px 8px;
+  -webkit-app-region: no-drag;
+  flex-shrink: 0;
+}
+
+#question-input:focus {
+  outline: none;
+  border-color: rgba(80, 140, 255, 0.8);
+}
+
+#tree-canvas {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: auto;
+  margin: 0 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#tree-canvas::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+#tree-canvas::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+#tree-canvas::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+#tree-content {
+  position: relative;
+}
+
+#tree-lines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.tree-card {
+  position: absolute;
+  width: 76px;
+  height: 104px;
+  border-radius: 6px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: rgba(30, 32, 40, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  cursor: grab;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  -webkit-app-region: no-drag;
+}
+
+.tree-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  border-radius: 4px 4px 0 0;
+  background: var(--dc, rgba(255, 255, 255, 0.3));
+}
+
+.tree-card:active {
+  cursor: grabbing;
+}
+
+body.dragging,
+body.dragging .tree-card {
+  cursor: grabbing;
+}
+
+.tree-card .card-name {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 4px;
+  pointer-events: none;
+}
+
+.tree-card .card-add {
+  position: absolute;
+  left: 50%;
+  bottom: -11px;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(70, 74, 92, 0.98);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.tree-card:hover .card-add {
+  display: flex;
+}
+
+.tree-card .card-add:hover {
+  background: rgba(120, 140, 255, 0.9);
+  border-color: rgba(150, 170, 255, 0.9);
+}
+
 #status {
   min-height: 20px;
   text-align: center;
   font-size: 11px;
   color: #ff9f6e;
   padding: 0 8px 4px;
+  flex-shrink: 0;
 }
 
 #status.omen {
@@ -156,9 +280,28 @@ body {
   color: #ff5f56;
 }
 
+#card-explanations {
+  max-height: 120px;
+  margin: 0 8px 6px;
+  padding: 8px;
+  background: rgba(150, 120, 220, 0.12);
+  border: 1px solid rgba(150, 120, 220, 0.4);
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #e8eaf0;
+  overflow-y: auto;
+  user-select: text;
+  white-space: pre-wrap;
+  flex-shrink: 0;
+}
+
+#card-explanations[hidden] {
+  display: none;
+}
+
 #interpret-result {
-  flex: 1;
-  min-height: 0;
+  max-height: 180px;
   margin: 0 8px 8px;
   padding: 8px;
   background: rgba(0, 0, 0, 0.3);
@@ -170,6 +313,7 @@ body {
   overflow-y: auto;
   user-select: text;
   white-space: pre-wrap;
+  flex-shrink: 0;
 }
 
 #interpret-result[hidden] {

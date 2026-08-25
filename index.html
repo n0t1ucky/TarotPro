@@ -14,18 +14,24 @@
     <button id="btn-quit" title="關閉">✕</button>
   </div>
 
-  <div id="omen-area">
+  <div id="toolbar">
     <button id="btn-omen">抽牌</button>
+    <button id="btn-shuffle">洗牌</button>
+    <button id="btn-interpret">解牌</button>
+    <button id="btn-by-card">逐張解釋</button>
   </div>
 
   <input id="question-input" type="text" placeholder="輸入占卜問題（可留空）" />
 
-  <div id="action-row">
-    <button id="btn-interpret">解牌</button>
+  <div id="tree-canvas">
+    <div id="tree-content">
+      <svg id="tree-lines"></svg>
+    </div>
   </div>
 
   <div id="status"></div>
 
+  <div id="card-explanations" hidden></div>
   <div id="interpret-result" hidden></div>
 
   <script src="toast.js"></script>

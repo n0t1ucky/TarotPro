@@ -12,8 +12,8 @@ const HISTORY_FILE = path.join(app.getPath('userData'), 'tarot-history.json');
 const CONFIG_FILE = path.join(app.getPath('userData'), 'window-config.json');
 
 const WINDOW_PRESETS = {
-  standard: { width: 360, height: 320, label: '標準' },
-  compact: { width: 180, height: 200, label: '緊湊' }
+  standard: { width: 760, height: 540, label: '標準' },
+  compact: { width: 400, height: 460, label: '緊湊' }
 };
 
 function readConfig() {
@@ -60,7 +60,9 @@ function createWindow() {
     frame: false,
     transparent: true,
     alwaysOnTop: true,
-    resizable: false,
+    resizable: true,
+    minWidth: 300,
+    minHeight: 260,
     skipTaskbar: true,
     hasShadow: false,
     webPreferences: {
@@ -251,13 +253,6 @@ app.on('window-all-closed', () => {
   app.quit();
 });
 
-// 設定視窗請求：重置當天塔羅抽牌機會
-ipcMain.on('reset-omen', () => {
-  if (win && !win.isDestroyed()) {
-    win.webContents.send('omen-reset');
-  }
-});
-
 // 窗口尺寸
 ipcMain.handle('window-get-presets', () => {
   const config = readConfig();
@@ -274,16 +269,12 @@ ipcMain.handle('window-set-preset', (_e, presetName) => {
 
   if (win && !win.isDestroyed()) {
     const { width, height } = screen.getPrimaryDisplay().workArea;
-    // resizable:false 時 setSize 縮小常被忽略，暫時開啟 resize 強制套用
-    win.setResizable(true);
     win.setBounds({
       width: preset.width,
       height: preset.height,
       x: width - preset.width - 12,
       y: height - preset.height - 12
     });
-    win.setResizable(false);
-    win.webContents.send('window-preset-changed', presetName);
   }
   return true;
 });
@@ -297,6 +288,7 @@ ipcMain.handle('history-add', (_e, entry) => {
   const records = readHistory();
   const item = {
     timestamp: entry.timestamp || new Date().toISOString(),
+    roundId: entry.roundId || '',
     cards: entry.cards || '',
     interpretation: entry.interpretation || ''
   };
@@ -305,9 +297,34 @@ ipcMain.handle('history-add', (_e, entry) => {
   return item;
 });
 
-ipcMain.handle('history-update-interpretation', (_e, { cards, interpretation }) => {
+// 更新某個輪次的牌面清單（每次抽一張後累加）
+ipcMain.handle('history-update-cards', (_e, { roundId, cards }) => {
+  if (!roundId) return false;
   const records = readHistory();
-  // 找最近的、尚未有解讀、且牌面相符的記錄
+  for (let i = records.length - 1; i >= 0; i--) {
+    if (records[i].roundId === roundId) {
+      records[i].cards = cards;
+      writeHistory(records);
+      return true;
+    }
+  }
+  return false;
+});
+
+ipcMain.handle('history-update-interpretation', (_e, { roundId, cards, interpretation }) => {
+  const records = readHistory();
+  // 優先依輪次 ID 更新
+  if (roundId) {
+    for (let i = records.length - 1; i >= 0; i--) {
+      if (records[i].roundId === roundId) {
+        records[i].interpretation = interpretation;
+        writeHistory(records);
+        return true;
+      }
+    }
+    return false;
+  }
+  // 相容舊行為：找最近的、尚未有解讀、且牌面相符的記錄
   for (let i = records.length - 1; i >= 0; i--) {
     const r = records[i];
     if (r.cards === cards && !r.interpretation) {

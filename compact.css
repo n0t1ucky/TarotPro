@@ -1,4 +1,4 @@
-/* 緊湊模式：180×200 小視窗 */
+/* 緊湊模式：較窄視窗 */
 
 body.compact {
   border-radius: 6px;
@@ -18,15 +18,15 @@ body.compact #btn-quit {
   font-size: 10px;
 }
 
-body.compact #omen-area {
-  padding: 2px 4px 3px;
+body.compact #toolbar {
+  gap: 4px;
+  padding: 2px 4px 4px;
 }
 
-body.compact #btn-omen {
-  padding: 4px 12px;
-  font-size: 11px;
-  border-radius: 5px;
-  letter-spacing: 1px;
+body.compact #toolbar button {
+  padding: 4px 0;
+  font-size: 10px;
+  border-radius: 4px;
 }
 
 body.compact #question-input {
@@ -35,15 +35,13 @@ body.compact #question-input {
   padding: 3px 5px;
 }
 
-body.compact #action-row {
-  gap: 4px;
-  padding: 0 4px 4px;
+body.compact #tree-canvas {
+  margin: 0 4px;
+  border-radius: 4px;
 }
 
-body.compact #btn-interpret {
-  padding: 3px 0;
-  font-size: 10px;
-  border-radius: 4px;
+body.compact .tree-card .card-name {
+  font-size: 9px;
 }
 
 body.compact #status {
@@ -56,7 +54,15 @@ body.compact #status {
   text-overflow: ellipsis;
 }
 
+body.compact #card-explanations {
+  max-height: 90px;
+  margin: 0 4px 4px;
+  padding: 5px;
+  font-size: 9px;
+}
+
 body.compact #interpret-result {
+  max-height: 140px;
   margin: 0 4px 4px;
   padding: 5px;
   font-size: 9px;
