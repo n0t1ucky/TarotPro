@@ -5,6 +5,7 @@ const btnOmen = document.getElementById('btn-omen');
 const btnShuffle = document.getElementById('btn-shuffle');
 const btnQuit = document.getElementById('btn-quit');
 const btnByCard = document.getElementById('btn-by-card');
+const btnSave = document.getElementById('btn-save');
 const questionInput = document.getElementById('question-input');
 const btnInterpret = document.getElementById('btn-interpret');
 const resultEl = document.getElementById('interpret-result');
@@ -12,9 +13,13 @@ const cardExplanationsEl = document.getElementById('card-explanations');
 const canvasEl = document.getElementById('tree-canvas');
 const contentEl = document.getElementById('tree-content');
 const linesSvg = document.getElementById('tree-lines');
+const cardTipEl = document.getElementById('card-tip');
 
 let lastByCardText = '';
 let roundId = '';
+let lastInterpretRaw = '';
+let lastInterpretJson = null;
+let lastInterpretedAt = null;
 
 function showStatus(msg, isError) {
   statusEl.textContent = msg || '';
@@ -74,8 +79,18 @@ function childrenOf(id) {
   return nodes.filter((n) => n.parentId === id);
 }
 
+function roots() {
+  return nodes.filter((n) => n.parentId === null);
+}
+
 function depthColor(depth) {
   return DEPTH_COLORS[depth % DEPTH_COLORS.length];
+}
+
+// 第一層卡牌上限（設置頁可調整，預設 6）
+function rootLimit() {
+  const v = parseInt(localStorage.getItem('spread.rootLimit') || '6', 10);
+  return Number.isFinite(v) && v >= 1 ? v : 6;
 }
 
 function parseToken(token) {
@@ -101,8 +116,6 @@ function pickCard() {
 
 // 樹狀自動佈局：根節點橫向（廣度），子節點縱向（深度）
 function layoutTree() {
-  const roots = nodes.filter((n) => n.parentId === null);
-
   function subtreeWidth(node) {
     const ch = childrenOf(node.id);
     if (ch.length === 0) return NODE_W;
@@ -126,7 +139,7 @@ function layoutTree() {
   }
 
   let offset = MARGIN;
-  for (const root of roots) {
+  for (const root of roots()) {
     const w = subtreeWidth(root);
     place(root, offset + w / 2, 0);
     offset += w + ROOT_GAP;
@@ -201,6 +214,8 @@ function renderTree() {
       el.appendChild(name);
       el.appendChild(add);
       el.addEventListener('mousedown', (e) => startDrag(n, e));
+      el.addEventListener('mouseenter', () => showCardTip(n));
+      el.addEventListener('mouseleave', hideCardTip);
       contentEl.appendChild(el);
     }
     el.style.left = n.x + 'px';
@@ -210,11 +225,31 @@ function renderTree() {
     el.style.borderColor = color.border;
     el.querySelector('.card-name').textContent = n.label;
     el.querySelector('.card-name').style.color = color.text;
+    el.classList.toggle('interpreted', !!n.interp);
   }
 
   existing.forEach((el, id) => {
     if (!seen.has(id)) el.remove();
   });
+}
+
+// ---- 卡牌解釋提示（懸停已解牌時顯示） ----
+function showCardTip(node) {
+  if (dragState || !node.interp) {
+    hideCardTip();
+    return;
+  }
+  const { w } = contentSize();
+  cardTipEl.textContent = node.interp;
+  const left = node.x + NODE_W + 10;
+  cardTipEl.style.left = (left + 280 > w ? node.x - 10 - 280 : left) + 'px';
+  cardTipEl.style.top = (node.y + NODE_H / 2 - 24) + 'px';
+  cardTipEl.hidden = false;
+}
+
+function hideCardTip() {
+  cardTipEl.hidden = true;
+  cardTipEl.textContent = '';
 }
 
 // ---- 拖拽 ----
@@ -223,6 +258,7 @@ let dragState = null;
 function startDrag(node, e) {
   if (e.button !== 0) return;
   e.preventDefault();
+  hideCardTip();
   dragState = {
     node,
     startX: e.clientX,
@@ -268,26 +304,53 @@ function revealNode(node) {
   canvasEl.scrollTop = sy;
 }
 
-// ---- 抽牌節點 ----
-function syncHistory() {
-  const cards = nodes.map((n) => n.token).join(', ');
-  try {
-    if (nodes.length === 1) {
-      window.api.historyAdd({ roundId, cards });
-    } else {
-      window.api.historyUpdateCards({ roundId, cards });
-    }
-  } catch (e) {
-    // 歷史記錄寫入失敗不影響抽牌
-  }
+// ---- 保存 ----
+function spreadSnapshot() {
+  return {
+    nodes: nodes.map((n) => ({
+      id: n.id,
+      token: n.token,
+      label: n.label,
+      depth: n.depth,
+      parentId: n.parentId,
+      x: n.x,
+      y: n.y
+    }))
+  };
 }
 
+// 將目前牌陣與解牌結果（如有）寫入歷史；解牌後自動呼叫
+function saveSpread() {
+  const payload = {
+    roundId,
+    cards: nodes.map((n) => n.token).join(', '),
+    spread: spreadSnapshot()
+  };
+  if (lastInterpretRaw) {
+    payload.interpretation = lastInterpretRaw;
+    payload.interpretationJson = lastInterpretJson;
+    payload.interpretedAt = lastInterpretedAt;
+  }
+  try {
+    window.api.historySave(payload);
+  } catch (e) {
+    // 保存失敗不影響操作
+  }
+  return payload;
+}
+
+// ---- 抽牌節點 ----
 function addNode(parentId) {
+  if (parentId === null && roots().length >= rootLimit()) {
+    showStatus(`第一層最多 ${rootLimit()} 張，可在設置中調整`, true);
+    return;
+  }
   const card = pickCard();
   if (!card) {
     showStatus('整副牌已抽完，請重新洗牌', true);
     return;
   }
+  clearInterpretState();
   const parent = parentId ? nodeById.get(parentId) : null;
   const node = {
     id: nextNodeId++,
@@ -296,16 +359,16 @@ function addNode(parentId) {
     depth: parent ? parent.depth + 1 : 0,
     parentId: parentId || null,
     x: 0,
-    y: 0
+    y: 0,
+    interp: ''
   };
   nodes.push(node);
   nodeById.set(node.id, node);
   layoutTree();
   renderTree();
   revealNode(node);
-  clearInterpretState();
   showStatus(`已抽出：${card.label}`);
-  syncHistory();
+  saveSpread();
   questionInput.focus();
 }
 
@@ -316,6 +379,10 @@ function startNewRound(notify) {
   nodeById.clear();
   drawnIdx.clear();
   dragState = null;
+  lastInterpretRaw = '';
+  lastInterpretJson = null;
+  lastInterpretedAt = null;
+  lastByCardText = '';
   contentEl.querySelectorAll('.tree-card').forEach((el) => el.remove());
   renderTree();
   clearInterpretState();
@@ -324,12 +391,17 @@ function startNewRound(notify) {
 }
 
 function clearInterpretState() {
+  for (const n of nodes) n.interp = '';
   lastByCardText = '';
+  lastInterpretRaw = '';
+  lastInterpretJson = null;
+  lastInterpretedAt = null;
   cardExplanationsEl.hidden = true;
   cardExplanationsEl.textContent = '';
   btnByCard.classList.remove('active');
   resultEl.hidden = true;
   resultEl.textContent = '';
+  hideCardTip();
 }
 
 btnOmen.addEventListener('click', () => addNode(null));
@@ -342,39 +414,72 @@ const MODEL_KEY = 'api.model';
 
 const TAROT_SYSTEM_PROMPT =
   '你是一位專業的塔羅牌解讀師。你熟悉大阿卡那與小阿卡那的象徵意義、' +
-  '以及正位與逆位（- 為逆位，+ 為正位）的差異。你的解牌風格沉穩、具體、務實，使用繁體中文。';
+  '以及正位與逆位（- 為逆位，+ 為正位）的差異。你的解牌風格沉穩、具體、務實，使用繁體中文。' +
+  '請依照使用者的要求以固定的 JSON 結構輸出，不要輸出 JSON 以外的文字。';
 
-function buildInterpretPrompt(cards, question) {
+// 只提交第一層深度的卡牌，並要求 AI 以 JSON 回覆以利逐張拆分
+function buildInterpretPrompt(firstLayer, question) {
+  const list = firstLayer.map((n, i) => `${i + 1}. ${n.label}`).join('\n');
   return (
-    `請針對本次抽出的塔羅牌進行解牌。\n\n` +
-    `本次抽牌結果：${cards}\n\n` +
+    `請針對以下第一層抽出的塔羅牌進行解牌。\n\n` +
+    `第一層卡牌：\n${list}\n\n` +
     (question ? `占卜問題：${question}\n\n` : '') +
     `編號格式說明：數字為牌面編號，牌名後方的 + 代表正位、- 代表逆位。\n` +
     `（小阿卡那的權杖/聖杯/寶劍/錢幣四種花色，對應火/水/風/土四元素。）\n\n` +
-    `請依以下結構回覆：\n` +
-    `1. 逐張解釋：每張牌的象徵意義，以及當前正/逆位帶來的影響\n` +
-    `2. 整體脈絡：牌面之間的關聯與整體想傳達的訊息\n` +
-    `3. 行動建議：簡潔、務實、可執行的建議`
+    `請嚴格依照下列 JSON 格式回覆（不要使用 Markdown 程式碼區塊包圍，不要輸出其他文字）：\n` +
+    `{\n` +
+    `  "逐張解釋": {\n` +
+    `    "卡牌名稱（與上方第一層卡牌清單完全一致）": "該張牌的解釋…",\n` +
+    `    "另一張牌名": "該張牌的解釋…"\n` +
+    `  },\n` +
+    `  "整體脈絡": "牌面之間的關聯與整體想傳達的訊息",\n` +
+    `  "行動建議": "簡潔、務實、可執行的建議"\n` +
+    `}\n\n` +
+    `「逐張解釋」中的每個鍵都必須是清單中的卡牌名稱（含正/逆標記，例如「愚者（正）」），且每張牌都要有一個鍵。`
   );
 }
 
-// 從解牌全文摘取「逐張解釋」段落（截至下一個段落標題）
-function extractByCard(text) {
-  if (!text) return '';
-  const start = text.indexOf('逐張解釋');
-  if (start === -1) return '';
-  let end = text.length;
-  const markers = ['三張組合', '整體脈絡', '行動建議', '綜合建議'];
-  for (const m of markers) {
-    const idx = text.indexOf(m, start + 1);
-    if (idx !== -1 && idx < end) end = idx;
+// 解析 AI 回傳的 JSON（容忍 Markdown 區塊或前後雜訊）
+function parseInterpretJson(raw) {
+  if (!raw) return null;
+  const text = raw.trim();
+  let json = text;
+  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fence) json = fence[1].trim();
+  const tryParse = (s) => {
+    try { return JSON.parse(s); } catch (e) { return null; }
+  };
+  const obj = tryParse(json);
+  if (obj) return obj;
+  const start = json.indexOf('{');
+  const end = json.lastIndexOf('}');
+  if (start !== -1 && end > start) {
+    const sliced = tryParse(json.slice(start, end + 1));
+    if (sliced) return sliced;
   }
-  return text.substring(start, end).trim();
+  return null;
+}
+
+function lookupPerCard(map, node) {
+  if (!map) return '';
+  if (typeof map[node.label] === 'string') return map[node.label];
+  const clean = node.name;
+  const key = Object.keys(map).find((k) => {
+    const k2 = k.replace(/[（(].*?[）)]/g, '').trim();
+    return k2 === clean || k.includes(clean);
+  });
+  return key ? map[key] : '';
+}
+
+function buildByCardText(firstLayer) {
+  const parts = firstLayer.map((n) => `${n.label}：${n.interp || '（尚未解牌）'}`);
+  return parts.join('\n\n');
 }
 
 async function interpret() {
-  if (nodes.length === 0) {
-    showStatus('尚未抽牌，請先抽牌', true);
+  const firstLayer = roots();
+  if (firstLayer.length === 0) {
+    showStatus('尚未抽牌，請先抽第一層的牌', true);
     return;
   }
   const url = (localStorage.getItem(BASE_URL_KEY) || '').replace(/\/+$/, '');
@@ -384,8 +489,12 @@ async function interpret() {
     showStatus('請先在設置中完成 API 設定與選擇模型', true);
     return;
   }
-  const cards = nodes.map((n) => n.token).join(', ');
+  const cards = firstLayer.map((n) => n.token).join(', ');
   const question = questionInput.value.trim();
+  const messages = [
+    { role: 'system', content: TAROT_SYSTEM_PROMPT },
+    { role: 'user', content: buildInterpretPrompt(firstLayer, question) }
+  ];
   btnInterpret.disabled = true;
   resultEl.hidden = false;
   resultEl.textContent = '解牌中，請稍候...';
@@ -396,13 +505,7 @@ async function interpret() {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${key}`
       },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: 'system', content: TAROT_SYSTEM_PROMPT },
-          { role: 'user', content: buildInterpretPrompt(cards, question) }
-        ]
-      })
+      body: JSON.stringify({ model, messages })
     });
     if (!res.ok) {
       throw new Error(`HTTP ${res.status} ${res.statusText}`);
@@ -414,14 +517,29 @@ async function interpret() {
     if (!content) {
       throw new Error('回應中沒有解牌內容');
     }
-    resultEl.textContent = content;
-    lastByCardText = extractByCard(content);
+    const parsed = parseInterpretJson(content);
+    const perCardMap = parsed && parsed['逐張解釋'] ? parsed['逐張解釋'] : null;
+
+    lastInterpretRaw = content;
+    lastInterpretJson = parsed;
+    lastInterpretedAt = new Date().toISOString();
+
+    for (const n of firstLayer) {
+      n.interp = perCardMap ? lookupPerCard(perCardMap, n) : '';
+    }
+    renderTree();
+
+    lastByCardText = buildByCardText(firstLayer);
     cardExplanationsEl.textContent = lastByCardText;
-    showStatus(lastByCardText ? '解牌完成' : '解牌完成（未偵測到逐張解釋段落）');
+    resultEl.textContent = content;
+    showStatus(perCardMap ? '解牌完成' : '解牌完成（未依 JSON 格式回覆，無法拆分）');
+    saveSpread();
+
+    // 寫入解牌日誌
     try {
-      await window.api.historyUpdateInterpretation({ roundId, interpretation: content });
+      await window.api.interpretLogAdd({ roundId, cards, input: messages, output: content });
     } catch (e) {
-      // 忽略歷史寫入失敗
+      // 忽略日誌寫入失敗
     }
   } catch (e) {
     resultEl.textContent = `解牌失敗：${e.message}`;
@@ -442,8 +560,15 @@ function toggleByCard() {
   btnByCard.classList.toggle('active', open);
 }
 
+function onSave() {
+  const payload = saveSpread();
+  const n = nodes.length;
+  showStatus(`已保存（${n} 張牌${payload.interpretation ? '，含解牌結果' : ''}）`);
+}
+
 btnInterpret.addEventListener('click', interpret);
 btnByCard.addEventListener('click', toggleByCard);
+btnSave.addEventListener('click', onSave);
 questionInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') interpret();
 });

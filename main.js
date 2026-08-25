@@ -9,6 +9,7 @@ let toastWin = null;
 let toastTimer = null;
 
 const HISTORY_FILE = path.join(app.getPath('userData'), 'tarot-history.json');
+const INTERPRET_LOG_FILE = path.join(app.getPath('userData'), 'interpret-log.json');
 const CONFIG_FILE = path.join(app.getPath('userData'), 'window-config.json');
 
 const WINDOW_PRESETS = {
@@ -40,6 +41,20 @@ function readHistory() {
 
 function writeHistory(records) {
   fs.writeFileSync(HISTORY_FILE, JSON.stringify(records, null, 2), 'utf8');
+}
+
+function readInterpretLog() {
+  try {
+    const raw = fs.readFileSync(INTERPRET_LOG_FILE, 'utf8');
+    const data = JSON.parse(raw);
+    return Array.isArray(data) ? data : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function writeInterpretLog(entries) {
+  fs.writeFileSync(INTERPRET_LOG_FILE, JSON.stringify(entries, null, 2), 'utf8');
 }
 
 function createWindow() {
@@ -334,4 +349,46 @@ ipcMain.handle('history-update-interpretation', (_e, { roundId, cards, interpret
     }
   }
   return false;
+});
+
+// 保存牌陣（含解牌結果，如有）；以 roundId 為準 upsert
+ipcMain.handle('history-save', (_e, entry) => {
+  const records = readHistory();
+  const idx = records.findIndex((r) => r.roundId === entry.roundId);
+  const item = {
+    timestamp: new Date().toISOString(),
+    roundId: entry.roundId || '',
+    cards: entry.cards || '',
+    spread: entry.spread || null,
+    interpretation: entry.interpretation || '',
+    interpretationJson: entry.interpretationJson || null,
+    interpretedAt: entry.interpretedAt || null
+  };
+  if (idx >= 0) {
+    const prev = records[idx];
+    records[idx] = { ...prev, ...item, timestamp: prev.timestamp || item.timestamp };
+  } else {
+    records.push(item);
+  }
+  writeHistory(records);
+  return item;
+});
+
+// 解牌日誌
+ipcMain.handle('interpret-log-add', (_e, entry) => {
+  const log = readInterpretLog();
+  const item = {
+    time: entry.time || new Date().toISOString(),
+    roundId: entry.roundId || '',
+    cards: entry.cards || '',
+    input: entry.input || [],
+    output: entry.output || ''
+  };
+  log.push(item);
+  writeInterpretLog(log);
+  return item;
+});
+
+ipcMain.handle('interpret-log-get-all', () => {
+  return readInterpretLog();
 });

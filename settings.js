@@ -12,6 +12,9 @@ const todayInterpretEl = document.getElementById('today-interpret');
 const btnHistory = document.getElementById('btn-history');
 const historyListEl = document.getElementById('history-list');
 const winSizeSelect = document.getElementById('win-size-select');
+const rootLimitInput = document.getElementById('root-limit');
+const btnLog = document.getElementById('btn-log');
+const logListEl = document.getElementById('log-list');
 const msg = document.getElementById('msg');
 
 const TOKEN_KEY = 'api.token';
@@ -318,6 +321,58 @@ winSizeSelect.addEventListener('change', async () => {
     showMsg('套用尺寸失敗：' + e.message, true);
   }
 });
+
+// 第一層卡牌上限（主視窗抽第一層牌時使用）
+rootLimitInput.value = localStorage.getItem('spread.rootLimit') || '6';
+rootLimitInput.addEventListener('change', () => {
+  let v = parseInt(rootLimitInput.value, 10);
+  if (!Number.isFinite(v) || v < 1) v = 6;
+  if (v > 78) v = 78;
+  rootLimitInput.value = String(v);
+  localStorage.setItem('spread.rootLimit', String(v));
+  showMsg(`第一層卡牌上限已設為 ${v}`);
+});
+
+// 解牌日誌：顯示所有解牌的輸入、輸出與時間
+async function showLog() {
+  const visible = logListEl.hidden;
+  if (!visible) {
+    logListEl.hidden = true;
+    btnLog.textContent = '解牌日誌';
+    return;
+  }
+  btnLog.disabled = true;
+  try {
+    const log = await window.api.interpretLogGetAll();
+    if (log.length === 0) {
+      logListEl.innerHTML = '<div class="log-entry">尚無解牌紀錄</div>';
+    } else {
+      const reversed = [...log].reverse();
+      logListEl.innerHTML = reversed.map((e) => {
+        const input = (e.input || [])
+          .map((m) => `<div class="log-role">${escapeHtml(m.role)}</div><pre>${escapeHtml(m.content || '')}</pre>`)
+          .join('');
+        return (
+          `<details class="log-entry">` +
+          `<summary>${fmtTime(e.time)} — ${escapeHtml(e.cards || '')}</summary>` +
+          `<div class="log-body">` +
+          `<div class="log-label">輸入：</div>${input}` +
+          `<div class="log-label">輸出：</div><pre>${escapeHtml(e.output || '')}</pre>` +
+          `</div>` +
+          `</details>`
+        );
+      }).join('');
+    }
+    logListEl.hidden = false;
+    btnLog.textContent = '隱藏解牌日誌';
+  } catch (e) {
+    showMsg('讀取解牌日誌失敗：' + e.message, true);
+  } finally {
+    btnLog.disabled = false;
+  }
+}
+
+btnLog.addEventListener('click', showLog);
 
 loadToday();
 loadWindowSize();

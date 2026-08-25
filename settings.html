@@ -35,6 +35,11 @@
     <select id="win-size-select"></select>
   </div>
 
+  <div class="field">
+    <label for="root-limit">第一層卡牌上限</label>
+    <input id="root-limit" type="number" min="1" max="78" value="6" />
+  </div>
+
   <hr />
 
   <div class="field">
@@ -61,6 +66,12 @@
   </div>
 
   <div id="history-list" class="result" hidden></div>
+
+  <div class="field">
+    <button id="btn-log">解牌日誌</button>
+  </div>
+
+  <div id="log-list" class="result" hidden></div>
 
   <div id="msg"></div>
 

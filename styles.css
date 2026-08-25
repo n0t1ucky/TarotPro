@@ -135,6 +135,16 @@ body {
   background: rgba(80, 180, 200, 0.7);
 }
 
+#btn-save {
+  background: rgba(80, 180, 110, 0.4);
+  border: 1px solid rgba(80, 180, 110, 0.7);
+  color: #c8ecd2;
+}
+
+#btn-save:hover {
+  background: rgba(80, 180, 110, 0.6);
+}
+
 #question-input {
   margin: 0 8px 6px;
   background: rgba(0, 0, 0, 0.35);
@@ -224,6 +234,12 @@ body.dragging .tree-card {
   cursor: grabbing;
 }
 
+/* 已解牌的卡牌顏色變淡 */
+.tree-card.interpreted {
+  opacity: 0.55;
+  filter: saturate(0.5);
+}
+
 .tree-card .card-name {
   font-size: 11px;
   font-weight: 600;
@@ -260,6 +276,26 @@ body.dragging .tree-card {
 .tree-card .card-add:hover {
   background: rgba(120, 140, 255, 0.9);
   border-color: rgba(150, 170, 255, 0.9);
+}
+
+#card-tip {
+  position: absolute;
+  max-width: 280px;
+  background: rgba(20, 22, 30, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #e8eaf0;
+  white-space: pre-wrap;
+  z-index: 5;
+  pointer-events: none;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+
+#card-tip[hidden] {
+  display: none;
 }
 
 #status {
