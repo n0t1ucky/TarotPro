@@ -111,7 +111,7 @@ function pickCard() {
   drawnIdx.add(c.idx);
   const upright = Math.random() < 0.5;
   const token = `${c.idx}-${c.card}${upright ? '+' : '-'}`;
-  return { token, label: cardLabel(token) };
+  return { token, label: cardLabel(token), idx: c.idx };
 }
 
 // 樹狀自動佈局：根節點橫向（廣度），子節點縱向（深度）
@@ -211,8 +211,20 @@ function renderTree() {
         addNode(n.id);
       });
 
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'card-del';
+      del.title = '刪除';
+      del.textContent = '✕';
+      del.addEventListener('mousedown', (e) => e.stopPropagation());
+      del.addEventListener('click', (e) => {
+        e.stopPropagation();
+        removeNode(n.id);
+      });
+
       el.appendChild(name);
       el.appendChild(add);
+      el.appendChild(del);
       el.addEventListener('mousedown', (e) => startDrag(n, e));
       el.addEventListener('mouseenter', () => showCardTip(n));
       el.addEventListener('mouseleave', hideCardTip);
@@ -340,20 +352,11 @@ function saveSpread() {
 }
 
 // ---- 抽牌節點 ----
-function addNode(parentId) {
-  if (parentId === null && roots().length >= rootLimit()) {
-    showStatus(`第一層最多 ${rootLimit()} 張，可在設置中調整`, true);
-    return;
-  }
-  const card = pickCard();
-  if (!card) {
-    showStatus('整副牌已抽完，請重新洗牌', true);
-    return;
-  }
-  clearInterpretState();
+function insertNode(card, parentId, verb) {
   const parent = parentId ? nodeById.get(parentId) : null;
   const node = {
     id: nextNodeId++,
+    idx: card.idx,
     token: card.token,
     label: card.label,
     depth: parent ? parent.depth + 1 : 0,
@@ -367,10 +370,127 @@ function addNode(parentId) {
   layoutTree();
   renderTree();
   revealNode(node);
-  showStatus(`已抽出：${card.label}`);
+  showStatus(`${verb || '已加入'}：${card.label}`);
   saveSpread();
   questionInput.focus();
 }
+
+function addNode(parentId) {
+  if (parentId === null && roots().length >= rootLimit()) {
+    showStatus(`第一層最多 ${rootLimit()} 張，可在設置中調整`, true);
+    return;
+  }
+  const card = pickCard();
+  if (!card) {
+    showStatus('整副牌已抽完，請重新洗牌', true);
+    return;
+  }
+  clearInterpretState();
+  insertNode(card, parentId, '已抽出');
+}
+
+// ---- 手動選牌（第一層） ----
+const pickerOverlayEl = document.getElementById('picker-overlay');
+const pickerGridEl = document.getElementById('picker-grid');
+
+function pickerHeader(idx) {
+  if (idx < MAJOR_ARCANA.length) return '大阿卡那';
+  return MINOR_SUITS[Math.floor((idx - MAJOR_ARCANA.length) / MINOR_RANKS.length)];
+}
+
+function openPicker() {
+  const limit = rootLimit();
+  const remain = limit - roots().length;
+  pickerGridEl.innerHTML = '';
+  if (remain <= 0) {
+    pickerGridEl.innerHTML = `<div class="picker-empty">第一層已達上限（${limit} 張），可在設置中調整</div>`;
+  } else {
+    const available = FULL_DECK.filter((c) => !drawnIdx.has(c.idx));
+    if (available.length === 0) {
+      pickerGridEl.innerHTML = '<div class="picker-empty">整副牌已抽完，請重新洗牌</div>';
+    } else {
+      let lastHeader = null;
+      for (const c of available) {
+        const h = pickerHeader(c.idx);
+        if (h !== lastHeader) {
+          lastHeader = h;
+          const hd = document.createElement('div');
+          hd.className = 'picker-header';
+          hd.textContent = h;
+          pickerGridEl.appendChild(hd);
+        }
+        const cell = document.createElement('button');
+        cell.type = 'button';
+        cell.className = 'picker-card';
+        cell.textContent = c.card;
+        // 左鍵 = 正位，右鍵 = 逆位
+        cell.addEventListener('click', () => {
+          addManualCard(c, true);
+          closePicker();
+        });
+        cell.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          addManualCard(c, false);
+          closePicker();
+        });
+        pickerGridEl.appendChild(cell);
+      }
+    }
+  }
+  pickerOverlayEl.hidden = false;
+}
+
+function closePicker() {
+  pickerOverlayEl.hidden = true;
+}
+
+// 手動將指定卡加入第一層（左鍵正位 / 右鍵逆位，洗牌前不重複）
+function addManualCard(deckCard, upright) {
+  if (roots().length >= rootLimit()) {
+    showStatus(`第一層最多 ${rootLimit()} 張，可在設置中調整`, true);
+    return;
+  }
+  if (drawnIdx.has(deckCard.idx)) return;
+  drawnIdx.add(deckCard.idx);
+  const token = `${deckCard.idx}-${deckCard.card}${upright ? '+' : '-'}`;
+  clearInterpretState();
+  insertNode({ token, label: cardLabel(token), idx: deckCard.idx }, null, '已加入');
+}
+
+// 刪除節點（含其所有子節點），並把該牌還回牌池
+function removeNode(id) {
+  const toRemove = [];
+  const stack = [id];
+  while (stack.length) {
+    const cur = stack.pop();
+    const n = nodeById.get(cur);
+    if (!n) continue;
+    toRemove.push(n);
+    for (const c of childrenOf(cur)) stack.push(c.id);
+  }
+  for (const n of toRemove) {
+    drawnIdx.delete(n.idx);
+    nodeById.delete(n.id);
+  }
+  const ids = new Set(toRemove.map((n) => n.id));
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    if (ids.has(nodes[i].id)) nodes.splice(i, 1);
+  }
+  clearInterpretState();
+  layoutTree();
+  renderTree();
+  saveSpread();
+  showStatus(toRemove.length > 1 ? `已刪除 ${toRemove.length} 張牌` : '已刪除該牌');
+}
+
+document.getElementById('btn-pick').addEventListener('click', openPicker);
+document.getElementById('picker-close').addEventListener('click', closePicker);
+pickerOverlayEl.addEventListener('click', (e) => {
+  if (e.target === pickerOverlayEl) closePicker();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !pickerOverlayEl.hidden) closePicker();
+});
 
 function startNewRound(notify) {
   roundId = String(Date.now());

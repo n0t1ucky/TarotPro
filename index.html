@@ -16,6 +16,7 @@
 
   <div id="toolbar">
     <button id="btn-omen">抽牌</button>
+    <button id="btn-pick">選牌</button>
     <button id="btn-shuffle">洗牌</button>
     <button id="btn-interpret">解牌</button>
     <button id="btn-save">保存</button>
@@ -35,6 +36,17 @@
 
   <div id="card-explanations" hidden></div>
   <div id="interpret-result" hidden></div>
+
+  <div id="picker-overlay" hidden>
+    <div id="picker-box">
+      <div id="picker-head">
+        <span>選擇卡牌加入第一層</span>
+        <button id="picker-close" title="關閉">✕</button>
+      </div>
+      <div class="picker-hint">左鍵：正位　右鍵：逆位</div>
+      <div id="picker-grid"></div>
+    </div>
+  </div>
 
   <script src="toast.js"></script>
   <script src="renderer.js"></script>

@@ -67,6 +67,15 @@ body.compact #card-tip {
   padding: 6px;
 }
 
+body.compact .picker-card {
+  font-size: 10px;
+  padding: 4px 8px;
+}
+
+body.compact #picker-head {
+  font-size: 11px;
+}
+
 body.compact #interpret-result {
   max-height: 140px;
   margin: 0 4px 4px;
