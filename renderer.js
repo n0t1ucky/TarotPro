@@ -6,20 +6,31 @@ const btnShuffle = document.getElementById('btn-shuffle');
 const btnQuit = document.getElementById('btn-quit');
 const btnByCard = document.getElementById('btn-by-card');
 const btnSave = document.getElementById('btn-save');
+const btnDeep = document.getElementById('btn-deep');
+const btnLoad = document.getElementById('btn-load');
 const questionInput = document.getElementById('question-input');
+const deityInput = document.getElementById('deity-input');
+const btnDeityLock = document.getElementById('btn-deity-lock');
 const btnInterpret = document.getElementById('btn-interpret');
 const resultEl = document.getElementById('interpret-result');
+const deepResultEl = document.getElementById('deep-result');
 const cardExplanationsEl = document.getElementById('card-explanations');
 const canvasEl = document.getElementById('tree-canvas');
 const contentEl = document.getElementById('tree-content');
 const linesSvg = document.getElementById('tree-lines');
 const cardTipEl = document.getElementById('card-tip');
+const modalOverlayEl = document.getElementById('modal-overlay');
+const modalTitleEl = document.getElementById('modal-title');
+const modalBodyEl = document.getElementById('modal-body');
 
 let lastByCardText = '';
 let roundId = '';
 let lastInterpretRaw = '';
 let lastInterpretJson = null;
 let lastInterpretedAt = null;
+let lastDeepRaw = '';
+let lastDeepJson = null;
+let lastDeepAt = null;
 
 function showStatus(msg, isError) {
   statusEl.textContent = msg || '';
@@ -27,6 +38,18 @@ function showStatus(msg, isError) {
   if (msg && typeof showToast === 'function') {
     showToast(msg);
   }
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function fmtTime(iso) {
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 // ---- 塔羅牌組 ----
@@ -225,6 +248,22 @@ function renderTree() {
       el.appendChild(name);
       el.appendChild(add);
       el.appendChild(del);
+
+      // 子節點：懸停顯示「?」按鈕，可綁定想解析的問題
+      if (n.depth > 0) {
+        const q = document.createElement('button');
+        q.type = 'button';
+        q.className = 'card-q';
+        q.title = '設定想解析的問題';
+        q.textContent = '?';
+        q.addEventListener('mousedown', (e) => e.stopPropagation());
+        q.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openQuestionModal(n);
+        });
+        el.appendChild(q);
+      }
+
       el.addEventListener('mousedown', (e) => startDrag(n, e));
       el.addEventListener('mouseenter', () => showCardTip(n));
       el.addEventListener('mouseleave', hideCardTip);
@@ -237,7 +276,9 @@ function renderTree() {
     el.style.borderColor = color.border;
     el.querySelector('.card-name').textContent = n.label;
     el.querySelector('.card-name').style.color = color.text;
-    el.classList.toggle('interpreted', !!n.interp);
+    const qEl = el.querySelector('.card-q');
+    if (qEl) qEl.classList.toggle('active', !!n.question);
+    el.classList.toggle('interpreted', !!(n.interp || n.deepInterp));
   }
 
   existing.forEach((el, id) => {
@@ -247,12 +288,13 @@ function renderTree() {
 
 // ---- 卡牌解釋提示（懸停已解牌時顯示） ----
 function showCardTip(node) {
-  if (dragState || !node.interp) {
+  const text = node.deepInterp || node.interp;
+  if (dragState || !text) {
     hideCardTip();
     return;
   }
   const { w } = contentSize();
-  cardTipEl.textContent = node.interp;
+  cardTipEl.textContent = text;
   const left = node.x + NODE_W + 10;
   cardTipEl.style.left = (left + 280 > w ? node.x - 10 - 280 : left) + 'px';
   cardTipEl.style.top = (node.y + NODE_H / 2 - 24) + 'px';
@@ -316,17 +358,35 @@ function revealNode(node) {
   canvasEl.scrollTop = sy;
 }
 
+// ---- 通用彈窗 ----
+function showModal(title, bodyHtml, onMount) {
+  modalTitleEl.textContent = title;
+  modalBodyEl.innerHTML = bodyHtml;
+  modalOverlayEl.hidden = false;
+  if (onMount) onMount(modalBodyEl);
+}
+
+function closeModal() {
+  modalOverlayEl.hidden = true;
+  modalBodyEl.innerHTML = '';
+  modalTitleEl.textContent = '';
+}
+
 // ---- 保存 ----
 function spreadSnapshot() {
   return {
     nodes: nodes.map((n) => ({
       id: n.id,
+      idx: n.idx,
       token: n.token,
       label: n.label,
       depth: n.depth,
       parentId: n.parentId,
       x: n.x,
-      y: n.y
+      y: n.y,
+      interp: n.interp || '',
+      question: n.question || '',
+      deepInterp: n.deepInterp || ''
     }))
   };
 }
@@ -342,6 +402,11 @@ function saveSpread() {
     payload.interpretation = lastInterpretRaw;
     payload.interpretationJson = lastInterpretJson;
     payload.interpretedAt = lastInterpretedAt;
+  }
+  if (lastDeepRaw) {
+    payload.deepInterpretationRaw = lastDeepRaw;
+    payload.deepInterpretationJson = lastDeepJson;
+    payload.deepInterpretedAt = lastDeepAt;
   }
   try {
     window.api.historySave(payload);
@@ -363,7 +428,9 @@ function insertNode(card, parentId, verb) {
     parentId: parentId || null,
     x: 0,
     y: 0,
-    interp: ''
+    interp: '',
+    question: '',
+    deepInterp: ''
   };
   nodes.push(node);
   nodeById.set(node.id, node);
@@ -483,15 +550,6 @@ function removeNode(id) {
   showStatus(toRemove.length > 1 ? `已刪除 ${toRemove.length} 張牌` : '已刪除該牌');
 }
 
-document.getElementById('btn-pick').addEventListener('click', openPicker);
-document.getElementById('picker-close').addEventListener('click', closePicker);
-pickerOverlayEl.addEventListener('click', (e) => {
-  if (e.target === pickerOverlayEl) closePicker();
-});
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !pickerOverlayEl.hidden) closePicker();
-});
-
 function startNewRound(notify) {
   roundId = String(Date.now());
   nextNodeId = 1;
@@ -502,6 +560,9 @@ function startNewRound(notify) {
   lastInterpretRaw = '';
   lastInterpretJson = null;
   lastInterpretedAt = null;
+  lastDeepRaw = '';
+  lastDeepJson = null;
+  lastDeepAt = null;
   lastByCardText = '';
   contentEl.querySelectorAll('.tree-card').forEach((el) => el.remove());
   renderTree();
@@ -511,38 +572,106 @@ function startNewRound(notify) {
 }
 
 function clearInterpretState() {
-  for (const n of nodes) n.interp = '';
+  for (const n of nodes) {
+    n.interp = '';
+    n.deepInterp = '';
+  }
   lastByCardText = '';
   lastInterpretRaw = '';
   lastInterpretJson = null;
   lastInterpretedAt = null;
+  lastDeepRaw = '';
+  lastDeepJson = null;
+  lastDeepAt = null;
   cardExplanationsEl.hidden = true;
   cardExplanationsEl.textContent = '';
   btnByCard.classList.remove('active');
   resultEl.hidden = true;
   resultEl.textContent = '';
+  deepResultEl.hidden = true;
+  deepResultEl.textContent = '';
   hideCardTip();
 }
 
 btnOmen.addEventListener('click', () => addNode(null));
 btnShuffle.addEventListener('click', () => startNewRound(true));
+document.getElementById('btn-pick').addEventListener('click', openPicker);
+document.getElementById('picker-close').addEventListener('click', closePicker);
+pickerOverlayEl.addEventListener('click', (e) => {
+  if (e.target === pickerOverlayEl) closePicker();
+});
+
+// ---- 節點問題（子節點懸停 ? 按鈕） ----
+function openQuestionModal(node) {
+  showModal(
+    '設定節點想解析的問題',
+    `<input id="modal-question-input" type="text" placeholder="輸入想解析的問題（可留空）" />
+     <div class="modal-actions">
+       <button id="modal-question-ok">確定</button>
+       <button id="modal-question-clear">清除</button>
+     </div>`,
+    (box) => {
+      const input = box.querySelector('#modal-question-input');
+      input.value = node.question || '';
+      input.focus();
+      box.querySelector('#modal-question-ok').addEventListener('click', () => {
+        node.question = input.value.trim();
+        closeModal();
+        renderTree();
+        saveSpread();
+        showStatus(node.question ? `已設定問題：${node.question}` : '已清除該節點問題');
+      });
+      box.querySelector('#modal-question-clear').addEventListener('click', () => {
+        node.question = '';
+        closeModal();
+        renderTree();
+        saveSpread();
+        showStatus('已清除該節點問題');
+      });
+    }
+  );
+}
 
 // ---- 解牌 ----
 const TOKEN_KEY = 'api.token';
 const BASE_URL_KEY = 'api.baseUrl';
 const MODEL_KEY = 'api.model';
 
+// 祈求對象尊名以及語句：值與鎖定狀態都會保存
+const DEITY_KEY = 'divination.deityName';
+const DEITY_LOCK_KEY = 'divination.deityLocked';
+
+function applyDeityLock() {
+  const locked = localStorage.getItem(DEITY_LOCK_KEY) === '1';
+  deityInput.readOnly = locked;
+  deityInput.classList.toggle('locked', locked);
+  btnDeityLock.textContent = locked ? '解鎖' : '鎖定';
+  btnDeityLock.classList.toggle('active', locked);
+}
+
+deityInput.value = localStorage.getItem(DEITY_KEY) || '';
+deityInput.addEventListener('input', () => {
+  localStorage.setItem(DEITY_KEY, deityInput.value);
+});
+btnDeityLock.addEventListener('click', () => {
+  localStorage.setItem(DEITY_LOCK_KEY, deityInput.readOnly ? '0' : '1');
+  applyDeityLock();
+  showStatus(deityInput.readOnly ? '已鎖定祈求對象尊名以及語句' : '已解鎖祈求對象尊名以及語句');
+});
+applyDeityLock();
+
 const TAROT_SYSTEM_PROMPT =
   '你是一位專業的塔羅牌解讀師。你熟悉大阿卡那與小阿卡那的象徵意義、' +
   '以及正位與逆位（- 為逆位，+ 為正位）的差異。你的解牌風格沉穩、具體、務實，使用繁體中文。' +
   '請依照使用者的要求以固定的 JSON 結構輸出，不要輸出 JSON 以外的文字。';
 
-// 只提交第一層深度的卡牌，並要求 AI 以 JSON 回覆以利逐張拆分
-function buildInterpretPrompt(firstLayer, question) {
+// 初始解牌：只提交第一層深度的卡牌，要求 AI 以 JSON 回覆以利逐張拆分
+function buildInterpretPrompt(firstLayer, question, deityName) {
   const list = firstLayer.map((n, i) => `${i + 1}. ${n.label}`).join('\n');
   return (
     `請針對以下第一層抽出的塔羅牌進行解牌。\n\n` +
     `第一層卡牌：\n${list}\n\n` +
+    (deityName ? `祈求對象尊名以及語句：${deityName}\n\n` : '') +
     (question ? `占卜問題：${question}\n\n` : '') +
     `編號格式說明：數字為牌面編號，牌名後方的 + 代表正位、- 代表逆位。\n` +
     `（小阿卡那的權杖/聖杯/寶劍/錢幣四種花色，對應火/水/風/土四元素。）\n\n` +
@@ -556,6 +685,30 @@ function buildInterpretPrompt(firstLayer, question) {
     `  "行動建議": "簡潔、務實、可執行的建議"\n` +
     `}\n\n` +
     `「逐張解釋」中的每個鍵都必須是清單中的卡牌名稱（含正/逆標記，例如「愚者（正）」），且每張牌都要有一個鍵。`
+  );
+}
+
+// 深度解牌：僅針對一棵牌樹，需已有初始解牌結果
+function buildDeepPrompt(tree, initialResult, deepResult, deityName, question) {
+  const lines = tree
+    .map((n) => `${'　'.repeat(n.depth)}${n.label}${n.question ? `　【問題：${n.question}】` : ''}`)
+    .join('\n');
+  return (
+    `請對以下單棵塔羅牌樹進行深度解牌。\n\n` +
+    `牌樹結構（縮排代表深度，【問題：…】為該節點綁定想解析的問題）：\n${lines}\n\n` +
+    (deityName ? `祈求對象尊名以及語句：${deityName}\n\n` : '') +
+    (question ? `占卜問題：${question}\n\n` : '') +
+    (initialResult ? `既有的初始解牌結果（第一層）：\n${initialResult}\n\n` : '') +
+    (deepResult ? `既有的深度解牌結果（供參考，可在此基礎上進一步深入）：\n${deepResult}\n\n` : '') +
+    `請針對整棵牌樹的關聯與各節點綁定的問題進行深入解析，並依照下列 JSON 格式回覆（不要使用 Markdown 程式碼區塊，不要輸出其他文字）：\n` +
+    `{\n` +
+    `  "逐點解牌": {\n` +
+    `    "卡牌名稱（含正/逆，需與上方牌樹一致）": "該節點的深度解釋…",\n` +
+    `    "另一張牌名": "…"\n` +
+    `  },\n` +
+    `  "整體深度解牌": "整棵樹整體的深入解析",\n` +
+    `  "行動建議": "簡潔、務實、可執行的建議"\n` +
+    `}`
   );
 }
 
@@ -611,9 +764,10 @@ async function interpret() {
   }
   const cards = firstLayer.map((n) => n.token).join(', ');
   const question = questionInput.value.trim();
+  const deityName = deityInput.value.trim();
   const messages = [
     { role: 'system', content: TAROT_SYSTEM_PROMPT },
-    { role: 'user', content: buildInterpretPrompt(firstLayer, question) }
+    { role: 'user', content: buildInterpretPrompt(firstLayer, question, deityName) }
   ];
   btnInterpret.disabled = true;
   resultEl.hidden = false;
@@ -644,6 +798,12 @@ async function interpret() {
     lastInterpretJson = parsed;
     lastInterpretedAt = new Date().toISOString();
 
+    // 初始解牌後清空先前的深度解牌
+    lastDeepRaw = '';
+    lastDeepJson = null;
+    lastDeepAt = null;
+    for (const n of nodes) n.deepInterp = '';
+
     for (const n of firstLayer) {
       n.interp = perCardMap ? lookupPerCard(perCardMap, n) : '';
     }
@@ -655,7 +815,6 @@ async function interpret() {
     showStatus(perCardMap ? '解牌完成' : '解牌完成（未依 JSON 格式回覆，無法拆分）');
     saveSpread();
 
-    // 寫入解牌日誌
     try {
       await window.api.interpretLogAdd({ roundId, cards, input: messages, output: content });
     } catch (e) {
@@ -683,14 +842,244 @@ function toggleByCard() {
 function onSave() {
   const payload = saveSpread();
   const n = nodes.length;
-  showStatus(`已保存（${n} 張牌${payload.interpretation ? '，含解牌結果' : ''}）`);
+  showStatus(`已保存（${n} 張牌${payload.interpretation ? '，含解牌結果' : ''}${payload.deepInterpretationRaw ? '，含深度解牌' : ''}）`);
 }
 
+// ---- 深度解牌 ----
+function gatherTree(rootId) {
+  const result = [];
+  const stack = [rootId];
+  while (stack.length) {
+    const cur = stack.pop();
+    const n = nodeById.get(cur);
+    if (!n) continue;
+    result.push(n);
+    const ch = childrenOf(cur);
+    for (let i = ch.length - 1; i >= 0; i--) stack.push(ch[i].id);
+  }
+  return result;
+}
+
+function startDeepInterpret() {
+  if (roots().length === 0) {
+    showStatus('尚未抽牌，請先抽牌', true);
+    return;
+  }
+  if (!lastInterpretRaw) {
+    showStatus('請先進行初始解牌（解牌）才能深度解牌', true);
+    return;
+  }
+  if (roots().length === 1) {
+    deepInterpret(roots()[0].id);
+    return;
+  }
+  const opts = roots().map((r) => {
+    const size = gatherTree(r.id).length;
+    return `<option value="${r.id}">${escapeHtml(r.label)}（${size} 張）</option>`;
+  }).join('');
+  showModal(
+    '選擇深度解牌的牌樹',
+    `<select id="modal-deep-select">${opts}</select>
+     <div class="modal-actions"><button id="modal-deep-ok">開始深度解牌</button></div>`,
+    (box) => {
+      box.querySelector('#modal-deep-ok').addEventListener('click', () => {
+        const id = Number(box.querySelector('#modal-deep-select').value);
+        closeModal();
+        deepInterpret(id);
+      });
+    }
+  );
+}
+
+async function deepInterpret(rootId) {
+  const tree = gatherTree(rootId);
+  if (tree.length === 0) return;
+  const url = (localStorage.getItem(BASE_URL_KEY) || '').replace(/\/+$/, '');
+  const key = localStorage.getItem(TOKEN_KEY) || '';
+  const model = localStorage.getItem(MODEL_KEY) || '';
+  if (!url || !key || !model) {
+    showStatus('請先在設置中完成 API 設定與選擇模型', true);
+    return;
+  }
+  const deityName = deityInput.value.trim();
+  const question = questionInput.value.trim();
+  const messages = [
+    { role: 'system', content: TAROT_SYSTEM_PROMPT },
+    { role: 'user', content: buildDeepPrompt(tree, lastInterpretRaw, lastDeepRaw, deityName, question) }
+  ];
+  btnDeep.disabled = true;
+  deepResultEl.hidden = false;
+  deepResultEl.textContent = '深度解牌中，請稍候...';
+  try {
+    const res = await fetch(`${url}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${key}`
+      },
+      body: JSON.stringify({ model, messages })
+    });
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status} ${res.statusText}`);
+    }
+    const data = await res.json();
+    const content = data.choices && data.choices[0] && data.choices[0].message
+      ? data.choices[0].message.content
+      : '';
+    if (!content) {
+      throw new Error('回應中沒有解牌內容');
+    }
+    const parsed = parseInterpretJson(content);
+    const deepMap = parsed && parsed['逐點解牌'] ? parsed['逐點解牌'] : null;
+    lastDeepRaw = content;
+    lastDeepJson = parsed;
+    lastDeepAt = new Date().toISOString();
+    for (const n of tree) n.deepInterp = deepMap ? lookupPerCard(deepMap, n) : '';
+    renderTree();
+    deepResultEl.textContent = content;
+    showStatus(deepMap ? '深度解牌完成' : '深度解牌完成（未依 JSON 格式回覆）');
+    saveSpread();
+    try {
+      await window.api.interpretLogAdd({
+        roundId,
+        cards: tree.map((n) => n.token).join(', '),
+        input: messages,
+        output: content
+      });
+    } catch (e) {
+      // 忽略日誌寫入失敗
+    }
+  } catch (e) {
+    deepResultEl.textContent = `深度解牌失敗：${e.message}`;
+    showStatus('深度解牌失敗', true);
+  } finally {
+    btnDeep.disabled = false;
+  }
+}
+
+// ---- 載入歷史 ----
+async function openLoadModal() {
+  let history = [];
+  try {
+    history = await window.api.historyGetAll();
+  } catch (e) {
+    showStatus('讀取歷史失敗：' + e.message, true);
+    return;
+  }
+  if (history.length === 0) {
+    showStatus('尚無歷史記錄', true);
+    return;
+  }
+  const reversed = [...history].reverse();
+  const rows = reversed.map((r) =>
+    `<button class="load-item">` +
+    `<span class="load-time">${fmtTime(r.timestamp)}</span>` +
+    `<span class="load-cards">${escapeHtml(r.cards || '（無牌面）')}</span>` +
+    (r.interpretation ? '<span class="load-badge">已解</span>' : '') +
+    (r.deepInterpretationRaw ? '<span class="load-badge">深解</span>' : '') +
+    `</button>`
+  ).join('');
+  showModal('載入歷史記錄', `<div class="load-list">${rows}</div>`, (box) => {
+    const items = box.querySelectorAll('.load-item');
+    items.forEach((item, idx) => {
+      item.addEventListener('click', () => {
+        loadRecord(reversed[idx]);
+        closeModal();
+      });
+    });
+  });
+}
+
+function loadRecord(record) {
+  roundId = record.roundId || String(Date.now());
+  nextNodeId = 1;
+  nodes.length = 0;
+  nodeById.clear();
+  drawnIdx.clear();
+  dragState = null;
+
+  if (record.spread && Array.isArray(record.spread.nodes) && record.spread.nodes.length > 0) {
+    for (const sn of record.spread.nodes) {
+      const p = parseToken(sn.token);
+      const node = {
+        id: nextNodeId++,
+        idx: sn.idx !== undefined ? sn.idx : (p ? p.idx : -1),
+        token: sn.token,
+        label: sn.label || (p ? cardLabel(sn.token) : sn.token),
+        depth: sn.depth || 0,
+        parentId: sn.parentId || null,
+        x: sn.x || 0,
+        y: sn.y || 0,
+        interp: sn.interp || '',
+        question: sn.question || '',
+        deepInterp: sn.deepInterp || ''
+      };
+      nodes.push(node);
+      nodeById.set(node.id, node);
+      if (p) drawnIdx.add(p.idx);
+    }
+  } else {
+    const tokens = (record.cards || '').split(', ').filter(Boolean);
+    for (const t of tokens) {
+      const p = parseToken(t);
+      if (!p) continue;
+      drawnIdx.add(p.idx);
+      const node = {
+        id: nextNodeId++,
+        idx: p.idx,
+        token: t,
+        label: cardLabel(t),
+        depth: 0,
+        parentId: null,
+        x: 0,
+        y: 0,
+        interp: '',
+        question: '',
+        deepInterp: ''
+      };
+      nodes.push(node);
+      nodeById.set(node.id, node);
+    }
+  }
+
+  lastInterpretRaw = record.interpretation || '';
+  lastInterpretJson = record.interpretationJson || null;
+  lastInterpretedAt = record.interpretedAt || null;
+  lastDeepRaw = record.deepInterpretationRaw || '';
+  lastDeepJson = record.deepInterpretationJson || null;
+  lastDeepAt = record.deepInterpretedAt || null;
+  lastByCardText = buildByCardText(roots());
+  cardExplanationsEl.textContent = lastByCardText;
+  resultEl.textContent = lastInterpretRaw;
+  resultEl.hidden = !lastInterpretRaw;
+  deepResultEl.textContent = lastDeepRaw;
+  deepResultEl.hidden = !lastDeepRaw;
+
+  layoutTree();
+  renderTree();
+  canvasEl.scrollLeft = 0;
+  canvasEl.scrollTop = 0;
+  showStatus(`已載入歷史記錄（${nodes.length} 張牌）`);
+}
+
+// ---- 事件綁定 ----
 btnInterpret.addEventListener('click', interpret);
 btnByCard.addEventListener('click', toggleByCard);
 btnSave.addEventListener('click', onSave);
+btnDeep.addEventListener('click', startDeepInterpret);
+btnLoad.addEventListener('click', openLoadModal);
 questionInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') interpret();
+});
+
+document.getElementById('modal-close').addEventListener('click', closeModal);
+modalOverlayEl.addEventListener('click', (e) => {
+  if (e.target === modalOverlayEl) closeModal();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (!pickerOverlayEl.hidden) closePicker();
+  if (!modalOverlayEl.hidden) closeModal();
 });
 
 // ---- 佈局 ----

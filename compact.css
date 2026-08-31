@@ -29,10 +29,38 @@ body.compact #toolbar button {
   border-radius: 4px;
 }
 
+body.compact #toolbar2 {
+  gap: 4px;
+  padding: 0 4px 4px;
+}
+
+body.compact #toolbar2 button {
+  padding: 3px 0;
+  font-size: 10px;
+  border-radius: 4px;
+}
+
 body.compact #question-input {
   margin: 0 4px 4px;
   font-size: 10px;
   padding: 3px 5px;
+}
+
+body.compact #deity-row {
+  gap: 4px;
+  margin: 0 4px 4px;
+}
+
+body.compact #deity-input {
+  font-size: 10px;
+  padding: 3px 5px;
+}
+
+body.compact #btn-deity-lock {
+  min-width: 40px;
+  padding: 3px 6px;
+  font-size: 10px;
+  border-radius: 3px;
 }
 
 body.compact #tree-canvas {
@@ -61,6 +89,14 @@ body.compact #card-explanations {
   font-size: 9px;
 }
 
+body.compact #interpret-result,
+body.compact #deep-result {
+  max-height: 130px;
+  margin: 0 4px 4px;
+  padding: 5px;
+  font-size: 9px;
+}
+
 body.compact #card-tip {
   max-width: 200px;
   font-size: 9px;
@@ -74,11 +110,4 @@ body.compact .picker-card {
 
 body.compact #picker-head {
   font-size: 11px;
-}
-
-body.compact #interpret-result {
-  max-height: 140px;
-  margin: 0 4px 4px;
-  padding: 5px;
-  font-size: 9px;
 }

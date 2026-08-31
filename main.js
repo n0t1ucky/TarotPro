@@ -362,7 +362,10 @@ ipcMain.handle('history-save', (_e, entry) => {
     spread: entry.spread || null,
     interpretation: entry.interpretation || '',
     interpretationJson: entry.interpretationJson || null,
-    interpretedAt: entry.interpretedAt || null
+    interpretedAt: entry.interpretedAt || null,
+    deepInterpretationRaw: entry.deepInterpretationRaw || '',
+    deepInterpretationJson: entry.deepInterpretationJson || null,
+    deepInterpretedAt: entry.deepInterpretedAt || null
   };
   if (idx >= 0) {
     const prev = records[idx];
