@@ -365,7 +365,11 @@ ipcMain.handle('history-save', (_e, entry) => {
     interpretedAt: entry.interpretedAt || null,
     deepInterpretationRaw: entry.deepInterpretationRaw || '',
     deepInterpretationJson: entry.deepInterpretationJson || null,
-    deepInterpretedAt: entry.deepInterpretedAt || null
+    deepInterpretedAt: entry.deepInterpretedAt || null,
+    completed: !!entry.completed,
+    completedAt: entry.completedAt || null,
+    closing: entry.closing || '',
+    summary: entry.summary || ''
   };
   if (idx >= 0) {
     const prev = records[idx];

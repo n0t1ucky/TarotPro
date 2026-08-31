@@ -191,6 +191,15 @@ body {
   background: rgba(255, 255, 255, 0.16);
 }
 
+#btn-end {
+  background: rgba(220, 80, 80, 0.5);
+  border: 1px solid rgba(220, 80, 80, 0.8);
+}
+
+#btn-end:hover {
+  background: rgba(220, 80, 80, 0.7);
+}
+
 #question-input {
   margin: 0 8px 6px;
   background: rgba(0, 0, 0, 0.35);
@@ -440,6 +449,17 @@ body.dragging .tree-card {
   background: rgba(120, 140, 255, 0.95);
 }
 
+/* 已完成占卜：鎖定卡牌 */
+.tree-card.locked {
+  cursor: default;
+}
+
+.tree-card.locked .card-add,
+.tree-card.locked .card-del,
+.tree-card.locked .card-q {
+  display: none !important;
+}
+
 #card-tip {
   position: absolute;
   max-width: 280px;
@@ -536,6 +556,67 @@ body.dragging .tree-card {
 
 #deep-result[hidden] {
   display: none;
+}
+
+#summary-result {
+  max-height: 180px;
+  margin: 0 8px 8px;
+  padding: 8px;
+  background: rgba(240, 170, 60, 0.08);
+  border: 1px solid rgba(240, 170, 60, 0.4);
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #f7e6c9;
+  overflow-y: auto;
+  user-select: text;
+  white-space: pre-wrap;
+  flex-shrink: 0;
+}
+
+#summary-result[hidden] {
+  display: none;
+}
+
+.end-message {
+  font-size: 14px;
+  color: #e8eaf0;
+  margin-bottom: 12px;
+}
+
+.end-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #e8eaf0;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.end-check input {
+  width: auto;
+  margin: 0;
+  accent-color: rgba(80, 140, 255, 0.9);
+}
+
+#end-confirm {
+  background: rgba(220, 80, 80, 0.6);
+  border: 1px solid rgba(220, 80, 80, 0.8);
+}
+
+#end-confirm:hover {
+  background: rgba(220, 80, 80, 0.8);
+}
+
+#end-back {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #dfe3ee;
+}
+
+#end-back:hover {
+  background: rgba(255, 255, 255, 0.18);
 }
 
 #modal-overlay {

@@ -8,12 +8,14 @@ const btnByCard = document.getElementById('btn-by-card');
 const btnSave = document.getElementById('btn-save');
 const btnDeep = document.getElementById('btn-deep');
 const btnLoad = document.getElementById('btn-load');
+const btnEnd = document.getElementById('btn-end');
 const questionInput = document.getElementById('question-input');
 const deityInput = document.getElementById('deity-input');
 const btnDeityLock = document.getElementById('btn-deity-lock');
 const btnInterpret = document.getElementById('btn-interpret');
 const resultEl = document.getElementById('interpret-result');
 const deepResultEl = document.getElementById('deep-result');
+const summaryResultEl = document.getElementById('summary-result');
 const cardExplanationsEl = document.getElementById('card-explanations');
 const canvasEl = document.getElementById('tree-canvas');
 const contentEl = document.getElementById('tree-content');
@@ -25,12 +27,16 @@ const modalBodyEl = document.getElementById('modal-body');
 
 let lastByCardText = '';
 let roundId = '';
+let roundCompleted = false;
 let lastInterpretRaw = '';
 let lastInterpretJson = null;
 let lastInterpretedAt = null;
 let lastDeepRaw = '';
 let lastDeepJson = null;
 let lastDeepAt = null;
+let lastClosing = '';
+let lastSummaryRaw = '';
+let lastCompletedAt = null;
 
 function showStatus(msg, isError) {
   statusEl.textContent = msg || '';
@@ -279,6 +285,7 @@ function renderTree() {
     const qEl = el.querySelector('.card-q');
     if (qEl) qEl.classList.toggle('active', !!n.question);
     el.classList.toggle('interpreted', !!(n.interp || n.deepInterp));
+    el.classList.toggle('locked', roundCompleted);
   }
 
   existing.forEach((el, id) => {
@@ -310,7 +317,7 @@ function hideCardTip() {
 let dragState = null;
 
 function startDrag(node, e) {
-  if (e.button !== 0) return;
+  if (roundCompleted || e.button !== 0) return;
   e.preventDefault();
   hideCardTip();
   dragState = {
@@ -408,6 +415,12 @@ function saveSpread() {
     payload.deepInterpretationJson = lastDeepJson;
     payload.deepInterpretedAt = lastDeepAt;
   }
+  if (roundCompleted) {
+    payload.completed = true;
+    payload.completedAt = lastCompletedAt;
+    payload.closing = lastClosing || '';
+    payload.summary = lastSummaryRaw || '';
+  }
   try {
     window.api.historySave(payload);
   } catch (e) {
@@ -443,6 +456,10 @@ function insertNode(card, parentId, verb) {
 }
 
 function addNode(parentId) {
+  if (roundCompleted) {
+    showStatus('占卜已結束，無法再抽牌', true);
+    return;
+  }
   if (parentId === null && roots().length >= rootLimit()) {
     showStatus(`第一層最多 ${rootLimit()} 張，可在設置中調整`, true);
     return;
@@ -513,6 +530,10 @@ function closePicker() {
 
 // 手動將指定卡加入第一層（左鍵正位 / 右鍵逆位，洗牌前不重複）
 function addManualCard(deckCard, upright) {
+  if (roundCompleted) {
+    showStatus('占卜已結束，無法再選牌', true);
+    return;
+  }
   if (roots().length >= rootLimit()) {
     showStatus(`第一層最多 ${rootLimit()} 張，可在設置中調整`, true);
     return;
@@ -526,6 +547,10 @@ function addManualCard(deckCard, upright) {
 
 // 刪除節點（含其所有子節點），並把該牌還回牌池
 function removeNode(id) {
+  if (roundCompleted) {
+    showStatus('占卜已結束，無法刪除卡牌', true);
+    return;
+  }
   const toRemove = [];
   const stack = [id];
   while (stack.length) {
@@ -557,18 +582,38 @@ function startNewRound(notify) {
   nodeById.clear();
   drawnIdx.clear();
   dragState = null;
+  roundCompleted = false;
   lastInterpretRaw = '';
   lastInterpretJson = null;
   lastInterpretedAt = null;
   lastDeepRaw = '';
   lastDeepJson = null;
   lastDeepAt = null;
+  lastClosing = '';
+  lastSummaryRaw = '';
+  lastCompletedAt = null;
   lastByCardText = '';
+  summaryResultEl.hidden = true;
+  summaryResultEl.textContent = '';
   contentEl.querySelectorAll('.tree-card').forEach((el) => el.remove());
   renderTree();
   clearInterpretState();
+  applyCompletedState();
   showStatus(notify ? '已開始新輪次，請抽牌' : '');
   questionInput.focus();
+}
+
+// 完成後鎖定：不可再抽牌、選牌、解牌、深度解牌；洗牌可開啟新輪次
+function applyCompletedState() {
+  const done = roundCompleted;
+  btnOmen.disabled = done;
+  document.getElementById('btn-pick').disabled = done;
+  btnInterpret.disabled = done;
+  btnDeep.disabled = done;
+  if (done) {
+    statusEl.textContent = '本次占卜已完成';
+    statusEl.classList.remove('error');
+  }
 }
 
 function clearInterpretState() {
@@ -842,7 +887,138 @@ function toggleByCard() {
 function onSave() {
   const payload = saveSpread();
   const n = nodes.length;
-  showStatus(`已保存（${n} 張牌${payload.interpretation ? '，含解牌結果' : ''}${payload.deepInterpretationRaw ? '，含深度解牌' : ''}）`);
+  showStatus(`已保存（${n} 張牌${payload.interpretation ? '，含解牌結果' : ''}${payload.deepInterpretationRaw ? '，含深度解牌' : ''}${payload.summary ? '，含總結' : ''}）`);
+}
+
+// ---- 結束占卜 ----
+function buildSummaryPrompt(treeText, deityName, question, closing, initialResult, deepResult) {
+  return (
+    `請為本次塔羅占卜做最終總結。\n\n` +
+    `完整牌陣（縮排代表深度，【問題：…】為該節點綁定的問題，並附上各牌已取得的解析）：\n${treeText}\n\n` +
+    (deityName ? `祈求對象尊名以及語句：${deityName}\n\n` : '') +
+    (question ? `占卜問題：${question}\n\n` : '') +
+    (closing ? `結束語句：${closing}\n\n` : '') +
+    (initialResult ? `初始解牌結果：\n${initialResult}\n\n` : '') +
+    (deepResult ? `深度解牌結果：\n${deepResult}\n\n` : '') +
+    `請綜合以上所有資訊（所有牌面、前後關係、所有已取得的解析、占卜問題與結束語句），給出一份完整且條理分明的最終總結，包含：\n` +
+    `1. 整體結論\n` +
+    `2. 占卜過程的發展脈絡（第一層 → 深入層）\n` +
+    `3. 最後的行動指引\n` +
+    `使用繁體中文。`
+  );
+}
+
+async function generateSummary(closing) {
+  const url = (localStorage.getItem(BASE_URL_KEY) || '').replace(/\/+$/, '');
+  const key = localStorage.getItem(TOKEN_KEY) || '';
+  const model = localStorage.getItem(MODEL_KEY) || '';
+  if (!url || !key || !model) {
+    throw new Error('請先在設置中完成 API 設定與選擇模型');
+  }
+  const deityName = deityInput.value.trim();
+  const question = questionInput.value.trim();
+  const treeText = nodes
+    .map((n) =>
+      `${'　'.repeat(n.depth)}${n.label}` +
+      (n.question ? `　【問題：${n.question}】` : '') +
+      (n.interp ? `　（${n.interp}）` : '') +
+      (n.deepInterp ? `　〔深度：${n.deepInterp}〕` : '')
+    )
+    .join('\n');
+  const messages = [
+    { role: 'system', content: TAROT_SYSTEM_PROMPT },
+    { role: 'user', content: buildSummaryPrompt(treeText, deityName, question, closing, lastInterpretRaw, lastDeepRaw) }
+  ];
+  const res = await fetch(`${url}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${key}`
+    },
+    body: JSON.stringify({ model, messages })
+  });
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status} ${res.statusText}`);
+  }
+  const data = await res.json();
+  const content = data.choices && data.choices[0] && data.choices[0].message
+    ? data.choices[0].message.content
+    : '';
+  if (!content) {
+    throw new Error('回應中沒有總結內容');
+  }
+  try {
+    await window.api.interpretLogAdd({
+      roundId,
+      cards: nodes.map((n) => n.token).join(', '),
+      input: messages,
+      output: content
+    });
+  } catch (e) {
+    // 忽略日誌寫入失敗
+  }
+  return content;
+}
+
+function completeRound(closing, summary) {
+  roundCompleted = true;
+  lastCompletedAt = new Date().toISOString();
+  lastClosing = closing || '';
+  lastSummaryRaw = summary || '';
+  summaryResultEl.textContent = summary;
+  summaryResultEl.hidden = !summary;
+  applyCompletedState();
+  renderTree();
+  hideCardTip();
+  const payload = saveSpread();
+  closeModal();
+  showStatus(`占卜已結束${payload.summary ? '（含總結）' : ''}`);
+}
+
+function openEndModal() {
+  if (roundCompleted) {
+    showStatus('本次占卜已完成', true);
+    return;
+  }
+  if (nodes.length === 0) {
+    showStatus('尚未抽牌，無法結束占卜', true);
+    return;
+  }
+  showModal(
+    '結束占卜',
+    `<div class="end-message">是否確定結束占卜？</div>
+     <label class="end-check">
+       <input type="checkbox" id="end-summary" />
+       <span>生成總結</span>
+     </label>
+     <input id="end-closing" type="text" placeholder="結束語句（可選）" />
+     <div class="modal-actions">
+       <button id="end-confirm">結束</button>
+       <button id="end-back">返回</button>
+     </div>`,
+    (box) => {
+      const confirmBtn = box.querySelector('#end-confirm');
+      box.querySelector('#end-back').addEventListener('click', closeModal);
+      confirmBtn.addEventListener('click', async () => {
+        const wantSummary = box.querySelector('#end-summary').checked;
+        const closing = box.querySelector('#end-closing').value.trim();
+        confirmBtn.disabled = true;
+        if (!wantSummary) {
+          completeRound(closing, '');
+          return;
+        }
+        confirmBtn.textContent = '總結生成中...';
+        try {
+          const summary = await generateSummary(closing);
+          completeRound(closing, summary);
+        } catch (e) {
+          confirmBtn.textContent = '結束';
+          confirmBtn.disabled = false;
+          showStatus('總結生成失敗：' + e.message, true);
+        }
+      });
+    }
+  );
 }
 
 // ---- 深度解牌 ----
@@ -1048,18 +1224,25 @@ function loadRecord(record) {
   lastDeepRaw = record.deepInterpretationRaw || '';
   lastDeepJson = record.deepInterpretationJson || null;
   lastDeepAt = record.deepInterpretedAt || null;
+  roundCompleted = !!record.completed;
+  lastCompletedAt = record.completedAt || null;
+  lastClosing = record.closing || '';
+  lastSummaryRaw = record.summary || '';
   lastByCardText = buildByCardText(roots());
   cardExplanationsEl.textContent = lastByCardText;
   resultEl.textContent = lastInterpretRaw;
   resultEl.hidden = !lastInterpretRaw;
   deepResultEl.textContent = lastDeepRaw;
   deepResultEl.hidden = !lastDeepRaw;
+  summaryResultEl.textContent = lastSummaryRaw;
+  summaryResultEl.hidden = !lastSummaryRaw;
 
   layoutTree();
   renderTree();
   canvasEl.scrollLeft = 0;
   canvasEl.scrollTop = 0;
   showStatus(`已載入歷史記錄（${nodes.length} 張牌）`);
+  applyCompletedState();
 }
 
 // ---- 事件綁定 ----
@@ -1068,6 +1251,7 @@ btnByCard.addEventListener('click', toggleByCard);
 btnSave.addEventListener('click', onSave);
 btnDeep.addEventListener('click', startDeepInterpret);
 btnLoad.addEventListener('click', openLoadModal);
+btnEnd.addEventListener('click', openEndModal);
 questionInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') interpret();
 });

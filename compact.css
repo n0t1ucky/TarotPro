@@ -90,7 +90,8 @@ body.compact #card-explanations {
 }
 
 body.compact #interpret-result,
-body.compact #deep-result {
+body.compact #deep-result,
+body.compact #summary-result {
   max-height: 130px;
   margin: 0 4px 4px;
   padding: 5px;
