@@ -9,6 +9,9 @@ const btnSave = document.getElementById('btn-save');
 const btnDeep = document.getElementById('btn-deep');
 const btnLoad = document.getElementById('btn-load');
 const btnEnd = document.getElementById('btn-end');
+const btnViewInit = document.getElementById('btn-view-init');
+const btnViewDeep = document.getElementById('btn-view-deep');
+const btnViewSummary = document.getElementById('btn-view-summary');
 const questionInput = document.getElementById('question-input');
 const deityInput = document.getElementById('deity-input');
 const btnDeityLock = document.getElementById('btn-deity-lock');
@@ -469,7 +472,7 @@ function addNode(parentId) {
     showStatus('整副牌已抽完，請重新洗牌', true);
     return;
   }
-  clearInterpretState();
+  // 保留既有的解牌結果（不覆蓋），新節點本身為「未解牌」
   insertNode(card, parentId, '已抽出');
 }
 
@@ -541,7 +544,6 @@ function addManualCard(deckCard, upright) {
   if (drawnIdx.has(deckCard.idx)) return;
   drawnIdx.add(deckCard.idx);
   const token = `${deckCard.idx}-${deckCard.card}${upright ? '+' : '-'}`;
-  clearInterpretState();
   insertNode({ token, label: cardLabel(token), idx: deckCard.idx }, null, '已加入');
 }
 
@@ -568,7 +570,6 @@ function removeNode(id) {
   for (let i = nodes.length - 1; i >= 0; i--) {
     if (ids.has(nodes[i].id)) nodes.splice(i, 1);
   }
-  clearInterpretState();
   layoutTree();
   renderTree();
   saveSpread();
@@ -889,6 +890,19 @@ function onSave() {
   const n = nodes.length;
   showStatus(`已保存（${n} 張牌${payload.interpretation ? '，含解牌結果' : ''}${payload.deepInterpretationRaw ? '，含深度解牌' : ''}${payload.summary ? '，含總結' : ''}）`);
 }
+
+// ---- 結果檢視（彈窗顯示各類解牌結果） ----
+function openResultModal(title, text) {
+  if (!text) {
+    showStatus(`${title}：尚無結果`, true);
+    return;
+  }
+  showModal(title, `<pre class="result-view">${escapeHtml(text)}</pre>`);
+}
+
+btnViewInit.addEventListener('click', () => openResultModal('解牌結果', lastInterpretRaw));
+btnViewDeep.addEventListener('click', () => openResultModal('深度解牌', lastDeepRaw));
+btnViewSummary.addEventListener('click', () => openResultModal('總結', lastSummaryRaw));
 
 // ---- 結束占卜 ----
 function buildSummaryPrompt(treeText, deityName, question, closing, initialResult, deepResult) {

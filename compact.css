@@ -40,6 +40,17 @@ body.compact #toolbar2 button {
   border-radius: 4px;
 }
 
+body.compact #toolbar3 {
+  gap: 4px;
+  padding: 0 4px 4px;
+}
+
+body.compact #toolbar3 button {
+  padding: 2px 0;
+  font-size: 9px;
+  border-radius: 4px;
+}
+
 body.compact #question-input {
   margin: 0 4px 4px;
   font-size: 10px;

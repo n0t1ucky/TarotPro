@@ -97,6 +97,15 @@ body {
   background: rgba(150, 120, 220, 0.7);
 }
 
+#btn-pick {
+  background: rgba(60, 110, 240, 0.6);
+  border: 1px solid rgba(60, 110, 240, 0.9);
+}
+
+#btn-pick:hover {
+  background: rgba(60, 110, 240, 0.8);
+}
+
 #btn-shuffle {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
@@ -150,6 +159,34 @@ body {
   gap: 6px;
   padding: 0 8px 6px;
   flex-shrink: 0;
+}
+
+#toolbar3 {
+  display: flex;
+  gap: 6px;
+  padding: 0 8px 6px;
+  flex-shrink: 0;
+}
+
+#toolbar3 button {
+  flex: 1;
+  border-radius: 6px;
+  padding: 4px 0;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #fff;
+  -webkit-app-region: no-drag;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+#toolbar3 button:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+#toolbar3 button:active {
+  transform: scale(0.98);
 }
 
 #toolbar2 button {
@@ -576,6 +613,17 @@ body.dragging .tree-card {
 
 #summary-result[hidden] {
   display: none;
+}
+
+.result-view {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #e8eaf0;
+  user-select: text;
 }
 
 .end-message {
