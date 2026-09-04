@@ -6,5 +6,6 @@ contextBridge.exposeInMainWorld('api', {
   interpretLogGetAll: () => ipcRenderer.invoke('interpret-log-get-all'),
   windowGetPresets: () => ipcRenderer.invoke('window-get-presets'),
   windowSetPreset: (presetName) => ipcRenderer.invoke('window-set-preset', presetName),
+  refreshTheme: () => ipcRenderer.invoke('theme-refresh'),
   showToast: (message, durationMs) => ipcRenderer.send('show-toast', message, durationMs)
 });

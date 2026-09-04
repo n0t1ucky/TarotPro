@@ -255,6 +255,15 @@ ipcMain.on('show-toast', (_e, message, durationMs) => {
   showToastMessage(message, durationMs);
 });
 
+// 主題刷新：通知主視窗強制保存後重載，以套用新主題
+ipcMain.handle('theme-refresh', () => {
+  if (win && !win.isDestroyed()) {
+    win.webContents.send('theme-refresh');
+    return true;
+  }
+  return false;
+});
+
 app.whenReady().then(() => {
   createWindow();
   createTray();

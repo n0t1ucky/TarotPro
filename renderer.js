@@ -85,9 +85,36 @@ function buildDeck() {
 
 const FULL_DECK = buildDeck();
 
+// ---- 主題 ----
+// 極簡：維持原始佈局與命名；經典：顯示卡面圖、名稱改為懸停顯示、選牌顯示縮圖
+let theme = 'minimal';
+function themeClassic() { return theme === 'classic'; }
+function nodeW() { return themeClassic() ? 72 : 76; }
+function nodeH() { return themeClassic() ? 120 : 104; }
+
+// 英文牌名與卡面檔名（對應 theme/classic/ 下的圖片）
+const MAJOR_NAMES_EN = [
+  'Fool', 'Magician', 'High_Priestess', 'Empress', 'Emperor', 'Hierophant',
+  'Lovers', 'Chariot', 'Strength', 'Hermit', 'Wheel_of_Fortune', 'Justice',
+  'Hanged_Man', 'Death', 'Temperance', 'Devil', 'Tower', 'Star', 'Moon',
+  'Sun', 'Judgement', 'World'
+];
+const MINOR_SUITS_EN = ['Wands', 'Cups', 'Swords', 'Pentacles'];
+const MINOR_RANK_TOKENS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', 'Page', 'Knight', 'Queen', 'King'];
+
+// 依索引回傳對應的卡面圖片相對路徑
+function cardImage(idx) {
+  if (idx < MAJOR_ARCANA.length) {
+    const nm = MAJOR_NAMES_EN[idx] || '';
+    return `theme/classic/${String(idx).padStart(2, '0')}_${nm}.jpg`;
+  }
+  const local = idx - MAJOR_ARCANA.length;
+  const suit = MINOR_SUITS_EN[Math.floor(local / MINOR_RANKS.length)] || 'Wands';
+  const rank = MINOR_RANK_TOKENS[local % MINOR_RANKS.length] || '01';
+  return `theme/classic/${suit}_${rank}.jpg`;
+}
+
 // ---- 樹狀結構 ----
-const NODE_W = 76;
-const NODE_H = 104;
 const H_GAP = 14;
 const V_GAP = 48;
 const ROOT_GAP = 24;
@@ -135,6 +162,12 @@ function cardLabel(token) {
   return p ? `${p.name}${p.upright ? '（正）' : '（逆）'}` : token;
 }
 
+// 是否為逆位牌（卡面圖旋轉 180°）
+function cardReversed(node) {
+  const p = parseToken(node.token);
+  return p ? !p.upright : false;
+}
+
 // 從未抽出的牌中隨機取一張（洗牌前不重複）
 function pickCard() {
   const available = FULL_DECK.filter((c) => !drawnIdx.has(c.idx));
@@ -150,15 +183,15 @@ function pickCard() {
 function layoutTree() {
   function subtreeWidth(node) {
     const ch = childrenOf(node.id);
-    if (ch.length === 0) return NODE_W;
+    if (ch.length === 0) return nodeW();
     let w = 0;
     for (const c of ch) w += subtreeWidth(c) + H_GAP;
     return w - H_GAP;
   }
 
   function place(node, cx, depth) {
-    node.x = Math.round(cx - NODE_W / 2);
-    node.y = MARGIN + depth * (NODE_H + V_GAP);
+    node.x = Math.round(cx - nodeW() / 2);
+    node.y = MARGIN + depth * (nodeH() + V_GAP);
     const ch = childrenOf(node.id);
     if (ch.length === 0) return;
     const total = subtreeWidth(node);
@@ -182,8 +215,8 @@ function contentSize() {
   let w = MARGIN;
   let h = MARGIN;
   for (const n of nodes) {
-    w = Math.max(w, n.x + NODE_W + MARGIN);
-    h = Math.max(h, n.y + NODE_H + MARGIN);
+    w = Math.max(w, n.x + nodeW() + MARGIN);
+    h = Math.max(h, n.y + nodeH() + MARGIN);
   }
   const cw = canvasEl.clientWidth || 0;
   const ch = canvasEl.clientHeight || 0;
@@ -197,9 +230,9 @@ function renderLines() {
     if (!n.parentId) continue;
     const p = nodeById.get(n.parentId);
     if (!p) continue;
-    const x1 = p.x + NODE_W / 2;
-    const y1 = p.y + NODE_H;
-    const x2 = n.x + NODE_W / 2;
+    const x1 = p.x + nodeW() / 2;
+    const y1 = p.y + nodeH();
+    const x2 = n.x + nodeW() / 2;
     const y2 = n.y;
     const midY = (y1 + y2) / 2;
     parts.push(`M${x1},${y1} V${midY} H${x2} V${y2}`);
@@ -228,6 +261,17 @@ function renderTree() {
       el = document.createElement('div');
       el.className = 'tree-card';
       el.dataset.id = String(n.id);
+
+      // 經典主題：卡面圖（墊底），名稱懸停才顯示
+      if (themeClassic()) {
+        const face = document.createElement('img');
+        face.className = 'card-face';
+        face.alt = '';
+        face.draggable = false;
+        face.src = cardImage(n.idx);
+        el.appendChild(face);
+        el.classList.add('with-face');
+      }
 
       const name = document.createElement('div');
       name.className = 'card-name';
@@ -283,8 +327,18 @@ function renderTree() {
     const color = depthColor(n.depth);
     el.style.setProperty('--dc', color.border);
     el.style.borderColor = color.border;
-    el.querySelector('.card-name').textContent = n.label;
-    el.querySelector('.card-name').style.color = color.text;
+    const nameEl = el.querySelector('.card-name');
+    nameEl.textContent = n.label;
+    if (!themeClassic()) nameEl.style.color = color.text;
+    if (themeClassic()) {
+      const face = el.querySelector('.card-face');
+      if (face) {
+        const img = cardImage(n.idx);
+        if (face.getAttribute('src') !== img) face.setAttribute('src', img);
+      }
+    }
+    // 經典主題：逆位牌旋轉 180°
+    el.classList.toggle('reversed', themeClassic() && cardReversed(n));
     const qEl = el.querySelector('.card-q');
     if (qEl) qEl.classList.toggle('active', !!n.question);
     el.classList.toggle('interpreted', !!(n.interp || n.deepInterp));
@@ -305,9 +359,9 @@ function showCardTip(node) {
   }
   const { w } = contentSize();
   cardTipEl.textContent = text;
-  const left = node.x + NODE_W + 10;
+  const left = node.x + nodeW() + 10;
   cardTipEl.style.left = (left + 280 > w ? node.x - 10 - 280 : left) + 'px';
-  cardTipEl.style.top = (node.y + NODE_H / 2 - 24) + 'px';
+  cardTipEl.style.top = (node.y + nodeH() / 2 - 24) + 'px';
   cardTipEl.hidden = false;
 }
 
@@ -356,8 +410,8 @@ document.addEventListener('mouseup', () => {
 function revealNode(node) {
   const cw = canvasEl.clientWidth;
   const ch = canvasEl.clientHeight;
-  const nx = node.x + NODE_W / 2;
-  const ny = node.y + NODE_H / 2;
+  const nx = node.x + nodeW() / 2;
+  const ny = node.y + nodeH() / 2;
   let sx = canvasEl.scrollLeft;
   let sy = canvasEl.scrollTop;
   if (nx < sx) sx = nx - 40;
@@ -402,7 +456,7 @@ function spreadSnapshot() {
 }
 
 // 將目前牌陣與解牌結果（如有）寫入歷史；解牌後自動呼叫
-function saveSpread() {
+function buildSavePayload() {
   const payload = {
     roundId,
     cards: nodes.map((n) => n.token).join(', '),
@@ -424,6 +478,11 @@ function saveSpread() {
     payload.closing = lastClosing || '';
     payload.summary = lastSummaryRaw || '';
   }
+  return payload;
+}
+
+function saveSpread() {
+  const payload = buildSavePayload();
   try {
     window.api.historySave(payload);
   } catch (e) {
@@ -508,8 +567,13 @@ function openPicker() {
         }
         const cell = document.createElement('button');
         cell.type = 'button';
-        cell.className = 'picker-card';
-        cell.textContent = c.card;
+        cell.className = 'picker-card' + (themeClassic() ? ' with-thumb' : '');
+        // 經典主題：同時顯示名稱與卡面縮圖
+        if (themeClassic()) {
+          cell.innerHTML = `<span class="picker-thumb"><img src="${cardImage(c.idx)}" alt=""/></span><span class="picker-name">${escapeHtml(c.card)}</span>`;
+        } else {
+          cell.textContent = c.card;
+        }
         // 左鍵 = 正位，右鍵 = 逆位
         cell.addEventListener('click', () => {
           addManualCard(c, true);
@@ -1286,7 +1350,34 @@ function updateCompact() {
   document.body.classList.toggle('compact', window.innerWidth < 440);
 }
 
+function applyTheme() {
+  theme = localStorage.getItem('theme.name') === 'classic' ? 'classic' : 'minimal';
+  document.body.classList.toggle('theme-classic', themeClassic());
+}
+
+// ---- 桌檯縮放（Ctrl + 滾輪） ----
+let zoom = 1;
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 2.5;
+const ZOOM_STEP = 0.1;
+
+function applyZoom() {
+  contentEl.style.zoom = String(zoom);
+}
+
+canvasEl.addEventListener('wheel', (e) => {
+  if (!e.ctrlKey) return;
+  e.preventDefault();
+  const dir = e.deltaY < 0 ? 1 : -1;
+  const next = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom + dir * ZOOM_STEP));
+  if (next !== zoom) {
+    zoom = next;
+    applyZoom();
+  }
+}, { passive: false });
+
 function init() {
+  applyTheme();
   updateCompact();
   window.addEventListener('resize', () => {
     updateCompact();
@@ -1295,6 +1386,16 @@ function init() {
   btnQuit.addEventListener('click', () => {
     window.close();
   });
+  // 主題刷新：強制保存目前牌桌後重載主視窗以套用新主題
+  window.api.onThemeRefresh(async () => {
+    try {
+      await window.api.historySave(buildSavePayload());
+    } catch (e) {
+      // 忽略保存失敗
+    }
+    window.location.reload();
+  });
+  applyZoom();
   startNewRound(false);
 }
 

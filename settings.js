@@ -15,6 +15,8 @@ const winSizeSelect = document.getElementById('win-size-select');
 const rootLimitInput = document.getElementById('root-limit');
 const btnLog = document.getElementById('btn-log');
 const logListEl = document.getElementById('log-list');
+const themeSelect = document.getElementById('theme-select');
+const btnThemeApply = document.getElementById('btn-theme-apply');
 const msg = document.getElementById('msg');
 
 const TOKEN_KEY = 'api.token';
@@ -331,6 +333,22 @@ rootLimitInput.addEventListener('change', () => {
   rootLimitInput.value = String(v);
   localStorage.setItem('spread.rootLimit', String(v));
   showMsg(`第一層卡牌上限已設為 ${v}`);
+});
+
+// 主題：選擇後點「刷新並套用」，強制保存目前牌桌並重啟主視窗套用新主題
+themeSelect.value = localStorage.getItem('theme.name') === 'classic' ? 'classic' : 'minimal';
+btnThemeApply.addEventListener('click', async () => {
+  const theme = themeSelect.value;
+  localStorage.setItem('theme.name', theme);
+  btnThemeApply.disabled = true;
+  showMsg(theme === 'classic' ? '切換到經典主題，重新啟動中…' : '切換到極簡主題，重新啟動中…');
+  try {
+    await window.api.refreshTheme();
+  } catch (e) {
+    showMsg('主題套用失敗：' + e.message, true);
+  } finally {
+    setTimeout(() => { btnThemeApply.disabled = false; }, 800);
+  }
 });
 
 // 解牌日誌：顯示所有解牌的輸入、輸出與時間

@@ -7,5 +7,8 @@ contextBridge.exposeInMainWorld('api', {
   historyUpdateInterpretation: (payload) => ipcRenderer.invoke('history-update-interpretation', payload),
   historySave: (payload) => ipcRenderer.invoke('history-save', payload),
   interpretLogAdd: (payload) => ipcRenderer.invoke('interpret-log-add', payload),
+  onThemeRefresh: (callback) => {
+    ipcRenderer.on('theme-refresh', () => callback());
+  },
   showToast: (message, durationMs) => ipcRenderer.send('show-toast', message, durationMs)
 });

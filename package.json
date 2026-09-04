@@ -32,7 +32,8 @@
       "compact.css",
       "toast.css",
       "toast.js",
-      "assets/**/*"
+      "assets/**/*",
+      "theme/**/*"
     ],
     "win": {
       "icon": "assets/icon.ico",
